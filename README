@@ -68,14 +68,14 @@ attempting to use CLucene. The 'CMakeLists.txt' file hacks around this
 by adding the libraries explicitly, but it seems unnecessary.
 
 
-Server ID
----------
+Configuring Server ID
+---------------------
 
     export LIBREPLICATION_SERVER_ID=12345
 
 
-TCP keepalive
--------------
+Configuring TCP keepalive
+-------------------------
 
     export LIBREPLICATION_TCP_KEEPALIVE=1
     export LIBREPLICATION_TCP_KEEPIDLE=15
