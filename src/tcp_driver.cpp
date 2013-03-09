@@ -129,6 +129,70 @@ tcp::socket *sync_connect_and_authenticate(boost::asio::io_service &io_service, 
     return 0;
   }
 
+  const char* env_libreplication_tcp_keepalive = std::getenv("LIBREPLICATION_TCP_KEEPALIVE");
+
+  if (env_libreplication_tcp_keepalive != 0) {
+    try {
+      const int libreplication_tcp_keepalive = boost::lexical_cast<int>(env_libreplication_tcp_keepalive);
+
+      if (libreplication_tcp_keepalive == 1) {
+        boost::asio::socket_base::keep_alive tcp_keepalive(true);
+        socket->set_option(tcp_keepalive);
+
+#if defined(__linux__) || defined(__MACOSX__)
+        const int fd = static_cast<int>(socket->native());
+
+        // TCP_KEEPIDLE
+        const char* env_libreplication_tcp_keepidle = std::getenv("LIBREPLICATION_TCP_KEEPIDLE");
+
+        if (env_libreplication_tcp_keepidle != 0) {
+          try {
+            const int libreplication_tcp_keepidle = boost::lexical_cast<int>(env_libreplication_tcp_keepidle);
+
+            if (libreplication_tcp_keepidle > 0) {
+              setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &libreplication_tcp_keepidle, sizeof(libreplication_tcp_keepidle));
+            }
+          } catch (boost::bad_lexical_cast e) {
+            // XXX: nothing to do
+          }
+        }
+
+        // TCP_KEEPINTVL
+        const char* env_libreplication_tcp_keepintvl = std::getenv("LIBREPLICATION_TCP_KEEPINTVL");
+
+        if (env_libreplication_tcp_keepintvl != 0) {
+          try {
+            const int libreplication_tcp_keepintvl = boost::lexical_cast<int>(env_libreplication_tcp_keepintvl);
+
+            if (libreplication_tcp_keepintvl > 0) {
+              setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, &libreplication_tcp_keepintvl, sizeof(libreplication_tcp_keepintvl));
+            }
+          } catch (boost::bad_lexical_cast e) {
+            // XXX: nothing to do
+          }
+        }
+
+        // TCP_KEEPCNT
+        const char* env_libreplication_tcp_keepcnt = std::getenv("LIBREPLICATION_TCP_KEEPCNT");
+
+        if (env_libreplication_tcp_keepcnt != 0) {
+          try {
+            const int libreplication_tcp_keepcnt = boost::lexical_cast<int>(env_libreplication_tcp_keepcnt);
+
+            if (libreplication_tcp_keepcnt > 0) {
+              setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, &libreplication_tcp_keepcnt, sizeof(libreplication_tcp_keepcnt));
+            }
+          } catch (boost::bad_lexical_cast e) {
+            // XXX: nothing to do
+          }
+        }
+#endif
+
+      }
+    } catch (boost::bad_lexical_cast e) {
+      // XXX: nothing to do
+    }
+  }
 
   /*
    * Successfully connected to the master.
