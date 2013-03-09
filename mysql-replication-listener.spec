@@ -12,7 +12,7 @@ URL:		https://bitbucket.org/winebarrel/mysql-replication-listener
 Source0:	mysql-replication-listener.tar.gz
 # git clone https://bitbucket.org/winebarrel/mysql-replication-listener.git
 # cd mysql-replication-listener/
-# git checkout refs/tags/0.0.47-10
+# git checkout refs/tags/0.0.47-11
 # cd ..
 # tar zcf mysql-replication-listener.tar.gz mysql-replication-listener/
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
