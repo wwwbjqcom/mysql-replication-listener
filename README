@@ -66,3 +66,18 @@ that the 'clucene-config.h' file is placed in '/usr/lib/CLucene' but
 not in '/usr/include/CLucene', causing compiler failure when
 attempting to use CLucene. The 'CMakeLists.txt' file hacks around this
 by adding the libraries explicitly, but it seems unnecessary.
+
+
+Server ID
+---------
+
+    export LIBREPLICATION_SERVER_ID=12345
+
+
+TCP keepalive
+-------------
+
+    export LIBREPLICATION_TCP_KEEPALIVE=1
+    export LIBREPLICATION_TCP_KEEPIDLE=15
+    export LIBREPLICATION_TCP_KEEPINTVL=5
+    export LIBREPLICATION_TCP_KEEPCNT=3
