@@ -339,6 +339,192 @@ double Value::as_double() const
   return *((const double *)storage());
 }
 
+boost::int64_t read_int8(char *& data)
+{
+  boost::int64_t value;
+  value = static_cast<boost::int8_t >(data[0]);
+  data++;
+
+  return value;
+}
+
+boost::int64_t read_int16_be(char *& data)
+{
+  boost::int64_t value;
+  value = static_cast<boost::int16_t >((data[0] << 8) |
+                                       data[1]);
+  data += 2;
+  return value;
+}
+
+boost::int64_t read_int24_be(char *& data)
+{
+  boost::int64_t value;
+  value = (data[0] & 0x80) == 0 ? 0 : -1 << 24;
+  value = static_cast<boost::int32_t >(value | (data[0] << 16) |
+                                       (data[1] << 8) |
+                                        data[2]);
+  data += 3;
+  return value;
+}
+
+boost::int64_t read_int32_be(char *& data)
+{
+  boost::int64_t value;
+  value = static_cast<boost::int32_t >(((data[0] & 0xff) << 24) |
+                                        ((data[1] & 0xff) << 16) |
+                                        ((data[2] & 0xff) << 8) |
+                                        (data[3] & 0xff));
+  data += 4;
+
+  return value;
+}
+
+boost::int64_t read_int_be_by_size(int size, char *& data)
+{
+  boost::int64_t value;
+
+  switch (size) {
+    case 1:
+      value = read_int8(data);
+      break;
+    case 2:
+      value = read_int16_be(data);
+      break;
+    case 3:
+      value = read_int24_be(data);
+      break;
+    case 4:
+      value = read_int32_be(data);
+      break;
+    default:
+      throw std::length_error("size " +
+                              boost::lexical_cast<std::string>(size) +
+                              " not implemented");
+      break;
+  }
+
+  return value;
+}
+
+void strip_leading_zeros(const std::string src, std::string& dst)
+{
+  if (src.length() == 0) {
+    dst.erase();
+    return;
+  }
+  size_t not_zero_pos = src.find_first_not_of('0');
+  if (not_zero_pos == std::string::npos) {
+    // All characters were 0.  Leave the last 0
+    not_zero_pos = src.length() - 1;
+  }
+  dst.assign(src.substr(not_zero_pos));
+}
+
+void strip_trailing_zeros(const std::string src, std::string& dst)
+{
+  if (src.length() == 0) {
+    dst.erase();
+    return;
+  }
+  size_t not_zero_pos = src.find_last_not_of('0');
+  if (not_zero_pos == std::string::npos) {
+    // All characters were 0.  Leave the first 0
+    not_zero_pos = 0;
+  }
+  dst.assign(src.substr(0, not_zero_pos + 1));
+}
+
+void convert_newdecimal(std::string &str, const Value &val)
+{
+  // The following code has been ported from Ruby mysql_binlog gem
+  // (https://github.com/jeremycole/mysql_binlog)
+  //
+  // Read a (new) decimal value. The value is stored as a sequence of signed
+  // big-endian integers, each representing up to 9 digits of the integral
+  // and fractional parts. The first integer of the integral part and/or the
+  // last integer of the fractional part might be compressed (or packed) and
+  // are of variable length. The remaining integers (if any) are
+  // uncompressed and 32 bits wide.
+
+  boost::uint32_t metadata = val.metadata();
+  int precision = (metadata & 0xff);
+  int scale = metadata >> 8;
+
+  char* val_storage = new char[val.length()];
+  memcpy(val_storage, val.storage(), val.length());
+  char* val_ptr = val_storage;
+
+  int digits_per_integer = 9;
+  int compressed_bytes[] = {0, 1, 1, 2, 2, 3, 3, 4, 4, 4};
+  int integral = (precision - scale);
+  int uncomp_integral = integral / digits_per_integer;
+  int uncomp_fractional = scale / digits_per_integer;
+  int comp_integral = integral - (uncomp_integral * digits_per_integer);
+  int comp_fractional = scale - (uncomp_fractional * digits_per_integer);
+
+  // The sign is encoded in the high bit of the first byte/digit. The byte
+  // might be part of a larger integer, so apply the optional bit-flipper
+  // and push back the byte into the input stream.
+  boost::int64_t value = val_ptr[0];
+  boost::int64_t mask;
+  if ((value & 0x80) != 0) {
+    str = "";
+    mask = 0;
+  } else {
+    str = "-";
+    mask = -1;
+  }
+
+  val_ptr[0] = value ^ 0x80;
+
+  std::ostringstream ss_integral;
+
+  int size = compressed_bytes[comp_integral];
+  if (size > 0) {
+    value = read_int_be_by_size(size, val_ptr) ^ mask;
+    ss_integral << std::setw(comp_integral) << std::setfill('0') << value;
+  }
+
+  for (int i = 0; i < uncomp_integral; i++) {
+    value = read_int32_be(val_ptr) ^ mask;
+    ss_integral << std::setw(digits_per_integer) << std::setfill('0') << value;
+  }
+
+  if (ss_integral.str().length() == 0) {
+    // There was no integral part.  Put 0.
+    ss_integral << 0;
+  }
+
+  std::string str_integral;
+  strip_leading_zeros(ss_integral.str(), str_integral);
+
+  std::ostringstream ss_fractional;
+
+  for (int i = 0; i < uncomp_fractional; i++) {
+    value = read_int32_be(val_ptr) ^ mask;
+    ss_fractional << std::setw(digits_per_integer) << std::setfill('0')
+                  << value; // zero fill 
+  }
+
+  size = compressed_bytes[comp_fractional];
+  if (size > 0) {
+    value = read_int_be_by_size(size, val_ptr) ^ mask;
+    ss_fractional << std::setw(comp_fractional) << std::setfill('0') << value;
+  }
+
+  std::string str_fractional;
+  str_fractional.assign(ss_fractional.str());
+
+  str.append(str_integral);
+  if (str_fractional.length() > 0) {
+    str.append(".");
+    str.append(str_fractional);
+  }
+
+  delete val_storage;
+}
+
 void Converter::to(std::string &str, const Value &val) const
 {
   if (val.is_null())
@@ -475,7 +661,7 @@ void Converter::to(std::string &str, const Value &val) const
       str= "not implemented";
       break;
     case MYSQL_TYPE_NEWDECIMAL:
-      str= "not implemented";
+      convert_newdecimal(str, val);
       break;
     case MYSQL_TYPE_ENUM:
       str= "not implemented";
