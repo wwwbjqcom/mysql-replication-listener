@@ -351,8 +351,8 @@ boost::int64_t read_int8(char *& data)
 boost::int64_t read_int16_be(char *& data)
 {
   boost::int64_t value;
-  value = static_cast<boost::int16_t >((data[0] << 8) |
-                                       data[1]);
+  value = static_cast<boost::int16_t >(((data[0] & 0xff) << 8) |
+                                       (data[1] & 0xff));
   data += 2;
   return value;
 }
@@ -360,10 +360,11 @@ boost::int64_t read_int16_be(char *& data)
 boost::int64_t read_int24_be(char *& data)
 {
   boost::int64_t value;
-  value = (data[0] & 0x80) == 0 ? 0 : -1 << 24;
-  value = static_cast<boost::int32_t >(value | (data[0] << 16) |
-                                       (data[1] << 8) |
-                                        data[2]);
+  char high_byte = (data[0] & 0x80) == 0 ? 0 : -1;
+  value = static_cast<boost::int32_t >(((high_byte & 0xff) << 24) |
+                                       ((data[0] & 0xff) << 16) |
+                                       ((data[1] & 0xff) << 8) |
+                                        (data[2] & 0xff));
   data += 3;
   return value;
 }
