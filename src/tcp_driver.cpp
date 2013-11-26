@@ -668,6 +668,24 @@ void Binlog_tcp_driver::shutdown(void)
 int Binlog_tcp_driver::set_position(const std::string &str, unsigned long position)
 {
   /*
+    Disconnect the current connection before validating the new connection.
+    Otherwise, a temporary connection for the validation lets the existing
+    one hang.
+  */
+  /*
+    By posting to the io service we guarantee that the operations are
+    executed in the same thread as the io_service is running in.
+  */
+  m_io_service.post(boost::bind(&Binlog_tcp_driver::shutdown, this));
+  if (m_event_loop)
+  {
+    m_event_loop->join();
+    delete(m_event_loop);
+  }
+  m_event_loop= 0;
+  disconnect();
+
+  /*
     Validate the new position before we attempt to set. Once we set the
     position we won't know if it succeded because the binlog dump is
     running in another thread asynchronously.
@@ -685,41 +703,37 @@ int Binlog_tcp_driver::set_position(const std::string &str, unsigned long positi
 
   std::map<std::string, unsigned long >::iterator binlog_itr= binlog_map.find(str);
 
+  bool is_valid_position = true;
   /*
     If the file name isn't listed on the server we will fail here.
   */
   if (binlog_itr == binlog_map.end())
-    return ERR_FAIL;
+    is_valid_position = false;
 
   /*
     If the requested position is greater than the file size we will fail
     here.
   */
   if (position > binlog_itr->second)
-    return ERR_FAIL;
+    is_valid_position = true;
 
-
-  /*
-    By posting to the io service we guarantee that the operations are
-    executed in the same thread as the io_service is running in.
-  */
-  m_io_service.post(boost::bind(&Binlog_tcp_driver::shutdown, this));
-  if (m_event_loop)
-  {
-    m_event_loop->join();
-    delete(m_event_loop);
-  }
-  m_event_loop= 0;
-  disconnect();
   /*
     Uppon return of connect we only know if we succesfully authenticated
     against the server. The binlog dump command is executed asynchronously
     in another thread.
   */
-  if (connect(m_user, m_passwd, m_host, m_port, str, position) == 0)
+  
+  int result = -1;
+  if (is_valid_position) {
+    result = connect(m_user, m_passwd, m_host, m_port, str, position);
+  } else {
+    result = connect(m_user, m_passwd, m_host, m_port);
+  }
+  if (is_valid_position && result == 0) {
     return ERR_OK;
-  else
+  } else {
     return ERR_FAIL;
+  }
 }
 
 int Binlog_tcp_driver::get_position(std::string *filename_ptr, unsigned long *position_ptr)
