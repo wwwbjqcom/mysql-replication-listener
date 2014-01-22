@@ -120,6 +120,12 @@ public:
     boost::int16_t as_int16() const;
 
     /**
+     * Returns the integer representation of a storage of pre-specified
+     * type.
+     */
+    boost::int32_t as_int24() const;
+
+    /**
      * Returns a pointer to the character data of a string type stored
      * in the pre-defined storage.
      * @note The position is an offset of the storage pointer determined

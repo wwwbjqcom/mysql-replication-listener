@@ -313,6 +313,22 @@ boost::int16_t Value::as_int16() const
   return to_int;
 }
 
+boost::int32_t Value::as_int24() const
+{
+  if (m_is_null)
+  {
+    return 0;
+  }
+  boost::int32_t to_int;
+  char high_byte = (m_storage[2] & 0x80) == 0 ? 0 : -1;
+
+  to_int = static_cast<boost::int32_t >(((high_byte & 0xff) << 24) |
+                                       ((m_storage[2] & 0xff) << 16) |
+                                       ((m_storage[1] & 0xff) << 8) |
+                                        (m_storage[0] & 0xff));
+  return to_int;
+}
+
 boost::int64_t Value::as_int64() const
 {
   if (m_is_null)
@@ -567,7 +583,7 @@ void Converter::to(std::string &str, const Value &val) const
       str= boost::lexical_cast<std::string>(val.as_int64());
       break;
     case MYSQL_TYPE_INT24:
-      str= "not implemented";
+      str= boost::lexical_cast<std::string>(val.as_int24());
       break;
     case MYSQL_TYPE_DATE:
     {
