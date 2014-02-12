@@ -65,7 +65,7 @@ static int hash_sha1(boost::uint8_t *output, ...);
   if (!m_socket)
   {
     if ((m_socket=sync_connect_and_authenticate(m_io_service, user, passwd, host, port)) == 0)
-      return 1;
+      throw std::runtime_error("Connect or authentication error");
   }
 
   /**
@@ -74,7 +74,7 @@ static int hash_sha1(boost::uint8_t *output, ...);
   if (binlog_filename == "")
   {
     if (fetch_master_status(m_socket, &m_binlog_file_name, &m_binlog_offset))
-      return 1;
+      throw std::runtime_error("Error fetching master status");
   } else
   {
     m_binlog_file_name=binlog_filename;
@@ -103,7 +103,6 @@ tcp::socket *sync_connect_and_authenticate(boost::asio::io_service &io_service, 
   /*
     Try each endpoint until we successfully establish a connection.
    */
-  try {
   tcp::resolver::iterator endpoint_iterator=resolver.resolve(query);
   tcp::resolver::iterator end;
 
@@ -119,14 +118,10 @@ tcp::socket *sync_connect_and_authenticate(boost::asio::io_service &io_service, 
     socket->connect(endpoint, error);
     endpoint_iterator++;
   }
-  } catch(...)
-  {
-    return 0;
-  }
 
   if (error)
   {
-    return 0;
+    throw std::runtime_error("Boost error: " + error.message());
   }
 
   const char* env_libreplication_tcp_keepalive = std::getenv("LIBREPLICATION_TCP_KEEPALIVE");
@@ -212,7 +207,7 @@ tcp::socket *sync_connect_and_authenticate(boost::asio::io_service &io_service, 
   unsigned char packet_no;
   if (proto_read_package_header(socket, server_messages, &packet_length, &packet_no))
   {
-    return 0;
+    throw std::runtime_error("Invalid package header");
   }
 
   /*
@@ -229,7 +224,7 @@ tcp::socket *sync_connect_and_authenticate(boost::asio::io_service &io_service, 
   proto_get_handshake_package(server_stream, handshake_package, packet_length);
 
   if (authenticate(socket, user, passwd, handshake_package))
-    return 0;
+    throw std::runtime_error("Authentication failed.");
 
   /*
    * Register slave to master
@@ -283,7 +278,7 @@ tcp::socket *sync_connect_and_authenticate(boost::asio::io_service &io_service, 
                        boost::asio::transfer_at_least(size));
   } catch( boost::system::error_code e)
   {
-    return 0;
+    throw std::runtime_error("Boost system error: " + e.message());
   }
 
   // Get Ok-package
@@ -304,7 +299,7 @@ tcp::socket *sync_connect_and_authenticate(boost::asio::io_service &io_service, 
   {
     struct st_error_package error_package;
     prot_parse_error_message(cmd_response_stream, error_package, packet_length);
-    return 0;
+    throw std::runtime_error("Error from server, code=" + boost::lexical_cast<std::string>(error_package.error_code) + ", message=\"" + error_package.message + "\"");
   }
 
   return socket;
