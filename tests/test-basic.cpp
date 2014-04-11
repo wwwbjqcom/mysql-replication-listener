@@ -47,7 +47,7 @@ class TestBinaryLog : public ::testing::Test {
 
 };
 
-
+/*
 TEST_F(TestBinaryLog, ConnectTo_Bogus)
 {
   using mysql::system::create_transport;
@@ -92,6 +92,53 @@ TEST_F(TestBinaryLog, SetPosition)
   EXPECT_EQ(position, 4);
 
   binlog->wait_for_next_event(&event);
+}
+*/
+TEST_F(TestBinaryLog, ConnectTo_File)
+{
+  using mysql::system::create_transport;
+//  mysql::Binary_log *binlog= new mysql::Binary_log(create_transport("file:///var/log/mysql/mysql-bin.000051"));
+  mysql::Binary_log *binlog= new mysql::Binary_log(create_transport("mysql://root@127.0.0.1:3306"));
+  std::cout << "Got here";
+  EXPECT_EQ(binlog->connect(), 0);
+  mysql::Binary_log_event *event;
+  mysql::Table_map_event *tme = 0;
+  while (1) {
+    binlog->wait_for_next_event(&event);
+    boost::uint64_t event_type = event->get_event_type();
+    std::cout << "Event Type: " << event_type << "\n";
+    if (event_type == mysql::WRITE_ROWS_EVENT) {
+      mysql::Row_event *re = static_cast<mysql::Row_event*>(event);
+      std::cout << "Col Len: " << re->columns_len << "\n";
+
+      mysql::Row_event_set rows(re, tme);
+      mysql::Row_event_set::iterator itor = rows.begin();
+
+      mysql::Row_of_fields fields = *itor;
+      mysql::Row_of_fields::iterator it = fields.begin();
+      mysql::Converter converter;
+      do {
+        mysql::system::enum_field_types type = it->type();
+        std::cout << "Type: " << type << "\n";
+        std::string out;
+        converter.to(out, *it);
+        std::cout << "Value: " << out << "\n";
+        std::cout << "Length: " << it->length() << "\n";
+        std::cout << "Metadata: " << it->metadata() << "\n";
+        std::cout << "Data: ";
+        const char *cts = it->storage();
+        char buff[10000];
+        for (int i = 0; i < it->length(); i++) {
+          std::printf("%02X", static_cast<unsigned int>(cts[i]));
+          std::cout << ", ";
+        }
+       std::cout << "\n";
+      } while(++it != fields.end());
+    } else if (event_type == mysql::TABLE_MAP_EVENT) {
+      tme = static_cast<mysql::Table_map_event*>(event);
+    }
+  }
+  delete(binlog);
 }
 
 int main(int argc, char **argv) {
