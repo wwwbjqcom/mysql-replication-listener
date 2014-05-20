@@ -569,14 +569,13 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
     {
       struct st_error_package error_package;
       prot_parse_error_message(auth_response_stream, error_package, packet_length);
-      return 1;
+      throw std::runtime_error("Error from server, code=" + boost::lexical_cast<std::string>(error_package.error_code) + ", message=\"" + error_package.message + "\"");
     }
 
     return 0;
   } catch (boost::system::system_error e)
   {
-    // TODO log error; adjust return code
-    return 1;
+    throw e;
   }
 }
 
