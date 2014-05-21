@@ -22,8 +22,171 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 #include <boost/lexical_cast.hpp>
 #include <iomanip>
 #include <boost/format.hpp>
+#include <sys/time.h>
 
 #define DIG_PER_DEC1 9
+
+#define DATETIME_MAX_DECIMALS 6
+#define MAX_DATE_STRING_REP_LENGTH 30
+
+// snip from mysql/extra/yassl/include/yassl_types.hpp
+typedef unsigned char  uchar;
+typedef unsigned char  uint8;
+typedef unsigned short uint16;
+typedef unsigned int   uint32;
+typedef uint8          uint24[3];
+typedef uint32         uint64[2];
+typedef uint8  opaque;
+typedef opaque byte;
+typedef unsigned int uint;
+
+// original
+typedef short int16;
+typedef int int32;
+typedef long long longlong;
+typedef unsigned long long ulonglong;
+typedef unsigned long ulong;
+typedef unsigned long long ulonglong;
+
+// snip from mysql/include/my_global.h
+#ifndef LL
+#ifdef HAVE_LONG_LONG
+#define LL(A) A ## LL
+#else
+#define LL(A) A ## L
+#endif
+#endif
+
+#ifndef ULL
+#ifdef HAVE_LONG_LONG
+#define ULL(A) A ## ULL
+#else
+#define ULL(A) A ## UL
+#endif
+#endif
+
+// snip from mysql/sql-common/my_time.h
+#define mi_sint1korr(A) ((int8)(*A))
+#define mi_uint1korr(A) ((uint8)(*A))
+
+#define mi_sint2korr(A) ((int16) (((int16) (((uchar*) (A))[1])) +\
+                                  ((int16) ((int16) ((char*) (A))[0]) << 8)))
+#define mi_sint3korr(A) ((int32) (((((uchar*) (A))[0]) & 128) ? \
+                                  (((uint32) 255L << 24) | \
+                                   (((uint32) ((uchar*) (A))[0]) << 16) |\
+                                   (((uint32) ((uchar*) (A))[1]) << 8) | \
+                                   ((uint32) ((uchar*) (A))[2])) : \
+                                  (((uint32) ((uchar*) (A))[0]) << 16) |\
+                                  (((uint32) ((uchar*) (A))[1]) << 8) | \
+                                  ((uint32) ((uchar*) (A))[2])))
+#define mi_sint4korr(A) ((int32) (((int32) (((uchar*) (A))[3])) +\
+                                  ((int32) (((uchar*) (A))[2]) << 8) +\
+                                  ((int32) (((uchar*) (A))[1]) << 16) +\
+                                  ((int32) ((int16) ((char*) (A))[0]) << 24)))
+#define mi_sint8korr(A) ((longlong) mi_uint8korr(A))
+#define mi_uint2korr(A) ((uint16) (((uint16) (((uchar*) (A))[1])) +\
+                                   ((uint16) (((uchar*) (A))[0]) << 8)))
+#define mi_uint3korr(A) ((uint32) (((uint32) (((uchar*) (A))[2])) +\
+                                   (((uint32) (((uchar*) (A))[1])) << 8) +\
+                                   (((uint32) (((uchar*) (A))[0])) << 16)))
+#define mi_uint4korr(A) ((uint32) (((uint32) (((uchar*) (A))[3])) +\
+                                   (((uint32) (((uchar*) (A))[2])) << 8) +\
+                                   (((uint32) (((uchar*) (A))[1])) << 16) +\
+                                   (((uint32) (((uchar*) (A))[0])) << 24)))
+#define mi_uint5korr(A) ((ulonglong)(((uint32) (((uchar*) (A))[4])) +\
+                                    (((uint32) (((uchar*) (A))[3])) << 8) +\
+                                    (((uint32) (((uchar*) (A))[2])) << 16) +\
+                                    (((uint32) (((uchar*) (A))[1])) << 24)) +\
+                                    (((ulonglong) (((uchar*) (A))[0])) << 32))
+#define mi_uint6korr(A) ((ulonglong)(((uint32) (((uchar*) (A))[5])) +\
+                                    (((uint32) (((uchar*) (A))[4])) << 8) +\
+                                    (((uint32) (((uchar*) (A))[3])) << 16) +\
+                                    (((uint32) (((uchar*) (A))[2])) << 24)) +\
+                        (((ulonglong) (((uint32) (((uchar*) (A))[1])) +\
+                                    (((uint32) (((uchar*) (A))[0]) << 8)))) <<\
+                                     32))
+#define mi_uint7korr(A) ((ulonglong)(((uint32) (((uchar*) (A))[6])) +\
+                                    (((uint32) (((uchar*) (A))[5])) << 8) +\
+                                    (((uint32) (((uchar*) (A))[4])) << 16) +\
+                                    (((uint32) (((uchar*) (A))[3])) << 24)) +\
+                        (((ulonglong) (((uint32) (((uchar*) (A))[2])) +\
+                                    (((uint32) (((uchar*) (A))[1])) << 8) +\
+                                    (((uint32) (((uchar*) (A))[0])) << 16))) <<\
+                                     32))
+#define mi_uint8korr(A) ((ulonglong)(((uint32) (((uchar*) (A))[7])) +\
+                                    (((uint32) (((uchar*) (A))[6])) << 8) +\
+                                    (((uint32) (((uchar*) (A))[5])) << 16) +\
+                                    (((uint32) (((uchar*) (A))[4])) << 24)) +\
+                        (((ulonglong) (((uint32) (((uchar*) (A))[3])) +\
+                                    (((uint32) (((uchar*) (A))[2])) << 8) +\
+                                    (((uint32) (((uchar*) (A))[1])) << 16) +\
+                                    (((uint32) (((uchar*) (A))[0])) << 24))) <<\
+                                    32))
+
+#define MY_PACKED_TIME_GET_INT_PART(x)     ((x) >> 24)
+#define MY_PACKED_TIME_GET_FRAC_PART(x)    ((x) % (1LL << 24))
+#define MY_PACKED_TIME_MAKE(i, f)          ((((longlong) (i)) << 24) + (f))
+#define MY_PACKED_TIME_MAKE_INT(i)         ((((longlong) (i)) << 24))
+
+
+
+// snip from mysql/include/my_global.h
+typedef char		my_bool; /* Small bool */
+
+// snip from mysql/include/mysql_time.h
+enum enum_mysql_timestamp_type
+{
+  MYSQL_TIMESTAMP_NONE= -2, MYSQL_TIMESTAMP_ERROR= -1,
+  MYSQL_TIMESTAMP_DATE= 0, MYSQL_TIMESTAMP_DATETIME= 1, MYSQL_TIMESTAMP_TIME= 2
+};
+
+
+typedef struct st_mysql_time
+{
+  unsigned int  year, month, day, hour, minute, second;
+  unsigned long second_part;  /**< microseconds */
+  my_bool       neg;
+  enum enum_mysql_timestamp_type time_type;
+} MYSQL_TIME;
+
+
+// snip from mysql/sql-common/my_time.c
+#define DATETIMEF_INT_OFS 0x8000000000LL
+
+ulonglong log_10_int[20]=
+{
+  1, 10, 100, 1000, 10000UL, 100000UL, 1000000UL, 10000000UL,
+  ULL(100000000), ULL(1000000000), ULL(10000000000), ULL(100000000000),
+  ULL(1000000000000), ULL(10000000000000), ULL(100000000000000),
+  ULL(1000000000000000), ULL(10000000000000000), ULL(100000000000000000),
+  ULL(1000000000000000000), ULL(10000000000000000000)
+};
+
+longlong my_datetime_packed_from_binary(const char *ptr, uint dec)
+{
+  longlong intpart= mi_uint5korr(ptr) - DATETIMEF_INT_OFS;
+  int frac;
+  switch (dec)
+  {
+  case 0:
+  default:
+    return MY_PACKED_TIME_MAKE_INT(intpart);
+  case 1:
+  case 2:
+    frac= ((int) (signed char) ptr[5]) * 10000;
+    break;
+  case 3:
+  case 4:
+    frac= mi_sint2korr(ptr + 5) * 100;
+    break;
+  case 5:
+  case 6:
+    frac= mi_sint3korr(ptr + 5);
+    break;
+  }
+  return MY_PACKED_TIME_MAKE(intpart, frac);
+}
+
 
 using namespace mysql;
 using namespace mysql::system;
@@ -43,6 +206,143 @@ int decimal_bin_size(int precision, int scale)
     intg0 * sizeof(boost::int32_t) + dig2bytes[intg0x] +
     frac0 * sizeof(boost::int32_t) + dig2bytes[frac0x]
     );
+}
+
+boost::uint32_t my_timestamp_binary_length(boost::uint32_t dec)
+{
+  return 4 + (dec + 1) / 2;
+}
+
+boost::uint32_t my_datetime_binary_length(boost::uint32_t dec)
+{
+  return 5 + (dec + 1) / 2;
+}
+
+boost::uint32_t my_time_binary_length(boost::uint32_t dec)
+{
+  return 3 + (dec + 1) / 2;
+}
+
+static inline int
+my_useconds_to_str(char *to, ulong useconds, uint dec)
+{
+  return sprintf(to, ".%0*lu", (int) dec,
+                 useconds / (ulong) log_10_int[DATETIME_MAX_DECIMALS - dec]);
+}
+
+int my_timeval_to_str(const struct timeval *tm, char *to, uint dec)
+{
+  int len= sprintf(to, "%d", (int) tm->tv_sec);
+  if (dec)
+    len+= my_useconds_to_str(to + len, tm->tv_usec, dec);
+  return len;
+}
+
+void my_timestamp_from_binary(struct timeval *tm, const char* ptr, boost::uint32_t dec)
+{
+  tm->tv_sec= mi_uint4korr(ptr);
+  switch (dec)
+  {
+    case 0:
+    default:
+      tm->tv_usec= 0;
+      break;
+    case 1:
+    case 2:
+      tm->tv_usec= ((int) ptr[4]) * 10000;
+      break;
+    case 3:
+    case 4:
+      tm->tv_usec= mi_sint2korr(ptr + 4) * 100;
+      break;
+    case 5:
+    case 6:
+      tm->tv_usec= mi_sint3korr(ptr + 4);
+  }
+}
+
+static inline int
+TIME_to_datetime_str(char *to, const MYSQL_TIME *ltime)
+{
+  uint32 temp, temp2;
+  /* Year */
+  temp= ltime->year / 100;
+  *to++= (char) ('0' + temp / 10);
+  *to++= (char) ('0' + temp % 10);
+  temp= ltime->year % 100;
+  *to++= (char) ('0' + temp / 10);
+  *to++= (char) ('0' + temp % 10);
+  *to++= '-';
+  /* Month */
+  temp= ltime->month;
+  temp2= temp / 10;
+  temp= temp-temp2 * 10;
+  *to++= (char) ('0' + (char) (temp2));
+  *to++= (char) ('0' + (char) (temp));
+  *to++= '-';
+  /* Day */ 
+  temp= ltime->day;
+  temp2= temp / 10;
+  temp= temp - temp2 * 10;
+  *to++= (char) ('0' + (char) (temp2));
+  *to++= (char) ('0' + (char) (temp));
+  *to++= ' ';
+  /* Hour */
+  temp= ltime->hour;
+  temp2= temp / 10;
+  temp= temp - temp2 * 10;
+  *to++= (char) ('0' + (char) (temp2));
+  *to++= (char) ('0' + (char) (temp));
+  *to++= ':';
+  /* Minute */
+  temp= ltime->minute;
+  temp2= temp / 10;
+  temp= temp - temp2 * 10;
+  *to++= (char) ('0' + (char) (temp2));
+  *to++= (char) ('0' + (char) (temp));
+  *to++= ':';
+  /* Second */
+  temp= ltime->second;
+  temp2=temp / 10;
+  temp= temp - temp2 * 10;
+  *to++= (char) ('0' + (char) (temp2));
+  *to++= (char) ('0' + (char) (temp));
+  return 19;
+}
+
+int my_datetime_to_str(const MYSQL_TIME *l_time, char *to, uint dec)
+{
+  int len= TIME_to_datetime_str(to, l_time);
+  if (dec)
+    len+= my_useconds_to_str(to + len, l_time->second_part, dec);
+  else
+    to[len]= '\0';
+  return len;
+}
+
+void TIME_from_longlong_datetime_packed(MYSQL_TIME *ltime, longlong tmp)
+{
+  longlong ymd, hms;
+  longlong ymdhms, ym;
+  if ((ltime->neg= (tmp < 0)))
+    tmp= -tmp;
+
+  ltime->second_part= MY_PACKED_TIME_GET_FRAC_PART(tmp);
+  ymdhms= MY_PACKED_TIME_GET_INT_PART(tmp);
+
+  ymd= ymdhms >> 17;
+  ym= ymd >> 5;
+  hms= ymdhms % (1 << 17);
+
+  ltime->day= ymd % (1 << 5);
+  ltime->month= ym % 13;
+  ltime->year= ym / 13;
+
+  ltime->second= hms % (1 << 6);
+  ltime->minute= (hms >> 6) % (1 << 6);
+  ltime->hour= (hms >> 12);
+
+  ltime->time_type= MYSQL_TIMESTAMP_DATETIME;
 }
 
 int calc_field_size(unsigned char column_type, const unsigned char *field_ptr, boost::uint32_t metadata)
@@ -141,6 +441,16 @@ int calc_field_size(unsigned char column_type, const unsigned char *field_ptr, b
     length= from_len + ((from_bit_len > 0) ? 1 : 0);
     break;
   }
+  case mysql::system::MYSQL_TYPE_TIMESTAMP2:
+    //TODO: metadata is not current. always 0.
+    length= my_timestamp_binary_length(metadata);
+    break;
+  case mysql::system::MYSQL_TYPE_DATETIME2:
+    length= my_datetime_binary_length(metadata);
+    break;
+  case mysql::system::MYSQL_TYPE_TIME2:
+    length= my_time_binary_length(metadata);
+    break;
   case mysql::system::MYSQL_TYPE_VARCHAR:
   {
     length= metadata > 255 ? 2 : 1;
@@ -578,7 +888,16 @@ void Converter::to(std::string &str, const Value &val) const
     case MYSQL_TYPE_TIMESTAMP:
       str= boost::lexical_cast<std::string>((boost::uint32_t)val.as_int32());
       break;
-
+    case MYSQL_TYPE_TIMESTAMP2:
+    {
+      // snip from mysql/sql/log_event#log_event_print_value
+      char buf[MAX_DATE_STRING_REP_LENGTH];
+      struct timeval tm;
+      my_timestamp_from_binary(&tm, val.storage(), val.metadata());
+      int buflen= my_timeval_to_str(&tm, buf, val.metadata());
+      str= boost::str(boost::format("%s") % buf);
+    }
+      break;
     case MYSQL_TYPE_LONGLONG:
       str= boost::lexical_cast<std::string>(val.as_int64());
       break;
@@ -616,6 +935,17 @@ void Converter::to(std::string &str, const Value &val) const
          << std::setw(2) << t % 100;
 
       str= os.str();
+    }
+      break;
+    case MYSQL_TYPE_DATETIME2:
+    {
+      // snip from mysql/sql/log_event#log_event_print_value
+      char buf[MAX_DATE_STRING_REP_LENGTH];
+      MYSQL_TIME ltime;
+      longlong packed= my_datetime_packed_from_binary(val.storage(), val.metadata());
+      TIME_from_longlong_datetime_packed(&ltime, packed);
+      int buflen= my_datetime_to_str(&ltime, buf, val.metadata());
+      str= boost::str(boost::format("%s") % buf);
     }
       break;
     case MYSQL_TYPE_TIME:

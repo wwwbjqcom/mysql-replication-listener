@@ -95,8 +95,10 @@ using namespace std;
                              ifstream::eofbit);
     try
     {
-      if(position)
+      if(position) {
         *position= m_binlog_file.tellg();
+      }
+      *str= m_binlog_file_name;
     } catch(...)
     {
       return ERR_FAIL;
