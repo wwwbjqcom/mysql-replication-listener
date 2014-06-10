@@ -13,9 +13,9 @@ option(WITH_SERVER_TESTS
   OFF)
 
 # GTest download variables
-set(GTEST_VERSION "1.5.0")
+set(GTEST_VERSION "1.7.0")
 set(GTEST_PACKAGE_NAME "gtest-${GTEST_VERSION}")
-set(GTEST_TARBALL "${GTEST_PACKAGE_NAME}.tar.gz")
+set(GTEST_TARBALL "${GTEST_PACKAGE_NAME}.zip")
 set(GTEST_DOWNLOAD_URL "http://googletest.googlecode.com/files/${GTEST_TARBALL}")
 if(NOT DOWNLOAD_ROOT)
   set(DOWNLOAD_ROOT ${CMAKE_SOURCE_DIR}/source_downloads)
@@ -91,7 +91,7 @@ if (NOT GTEST_FOUND)
           "Successfully downloaded ${GTEST_DOWNLOAD_URL} to ${DOWNLOAD_ROOT}")
         # Unpack tarball
         execute_process (
-          COMMAND ${CMAKE_COMMAND} -E tar xfz  "${DOWNLOAD_ROOT}/${GTEST_TARBALL}"
+          COMMAND unzip "${DOWNLOAD_ROOT}/${GTEST_TARBALL}"
           WORKING_DIRECTORY "${DOWNLOAD_ROOT}"
           OUTPUT_QUIET
           ERROR_QUIET
