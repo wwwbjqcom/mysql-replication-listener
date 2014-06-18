@@ -10,4 +10,4 @@ foreach(prog basic-1 basic-2)
   TARGET_LINK_LIBRARIES(${prog} replication)
 endforeach()
 
-add_subdirectory(mysql2lucene EXCLUDE_FROM_ALL)
+# add_subdirectory(mysql2lucene EXCLUDE_FROM_ALL)

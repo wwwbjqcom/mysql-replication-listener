@@ -16,3 +16,5 @@ tests/mysql2lucene/mysql2lucene
 tests/replay_sys_vars
 tests/replaybinlog
 tests/test-basic
+build
+.DS_Store
