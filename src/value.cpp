@@ -153,6 +153,9 @@ typedef struct st_mysql_time
 // snip from mysql/sql-common/my_time.c
 #define DATETIMEF_INT_OFS 0x8000000000LL
 
+#define TIMEF_OFS 0x800000000000LL
+#define TIMEF_INT_OFS 0x800000LL
+
 ulonglong log_10_int[20]=
 {
   1, 10, 100, 1000, 10000UL, 100000UL, 1000000UL, 10000000UL,
@@ -162,7 +165,7 @@ ulonglong log_10_int[20]=
   ULL(1000000000000000000), ULL(10000000000000000000)
 };
 
-longlong my_datetime_packed_from_binary(const char *ptr, uint dec)
+longlong my_datetime_packed_from_binary(const uchar *ptr, uint dec)
 {
   longlong intpart= mi_uint5korr(ptr) - DATETIMEF_INT_OFS;
   int frac;
@@ -187,6 +190,70 @@ longlong my_datetime_packed_from_binary(const char *ptr, uint dec)
   return MY_PACKED_TIME_MAKE(intpart, frac);
 }
 
+longlong my_time_packed_from_binary(const uchar *ptr, uint dec)
+{
+  //DBUG_ASSERT(dec <= DATETIME_MAX_DECIMALS);
+
+  switch (dec)
+  {
+  case 0:
+  default:
+    {
+      longlong intpart= mi_uint3korr(ptr) - TIMEF_INT_OFS;
+      return MY_PACKED_TIME_MAKE_INT(intpart);
+    }
+  case 1:
+  case 2:
+    {
+      longlong intpart= mi_uint3korr(ptr) - TIMEF_INT_OFS;
+      int frac= (uint) ptr[3];
+      if (intpart < 0 && frac)
+      {
+        /*
+          Negative values are stored with reverse fractional part order,
+          for binary sort compatibility.
+
+            Disk value  intpart frac   Time value   Memory value
+            800000.00    0      0      00:00:00.00  0000000000.000000
+            7FFFFF.FF   -1      255   -00:00:00.01  FFFFFFFFFF.FFD8F0
+            7FFFFF.9D   -1      99    -00:00:00.99  FFFFFFFFFF.F0E4D0
+            7FFFFF.00   -1      0     -00:00:01.00  FFFFFFFFFF.000000
+            7FFFFE.FF   -1      255   -00:00:01.01  FFFFFFFFFE.FFD8F0
+            7FFFFE.F6   -2      246   -00:00:01.10  FFFFFFFFFE.FE7960
+
+            Formula to convert fractional part from disk format
+            (now stored in "frac" variable) to absolute value: "0x100 - frac".
+            To reconstruct in-memory value, we shift
+            to the next integer value and then substruct fractional part.
+        */
+        intpart++;    /* Shift to the next integer value */
+        frac-= 0x100; /* -(0x100 - frac) */
+      }
+      return MY_PACKED_TIME_MAKE(intpart, frac * 10000);
+    }
+
+  case 3:
+  case 4:
+    {
+      longlong intpart= mi_uint3korr(ptr) - TIMEF_INT_OFS;
+      int frac= mi_uint2korr(ptr + 3);
+      if (intpart < 0 && frac)
+      {
+        /*
+          Fix reverse fractional part order: "0x10000 - frac".
+          See comments for FSP=1 and FSP=2 above.
+        */
+        intpart++;      /* Shift to the next integer value */
+        frac-= 0x10000; /* -(0x10000-frac) */
+      }
+      return MY_PACKED_TIME_MAKE(intpart, frac * 100);
+    }
+
+  case 5:
+  case 6:
+    return ((longlong) mi_uint6korr(ptr)) - TIMEF_OFS;
+  }
+}
 
 using namespace mysql;
 using namespace mysql::system;
@@ -228,6 +295,22 @@ my_useconds_to_str(char *to, ulong useconds, uint dec)
 {
   return sprintf(to, ".%0*lu", (int) dec,
                  useconds / (ulong) log_10_int[DATETIME_MAX_DECIMALS - dec]);
+}
+
+int my_time_to_str(const MYSQL_TIME *l_time, char *to, uint dec)
+{
+  uint extra_hours= 0;
+  int len= sprintf(to, "%s%02u:%02u:%02u", (l_time->neg ? "-" : ""),
+                   extra_hours + l_time->hour, l_time->minute, l_time->second);
+  if (dec)
+    len+= my_useconds_to_str(to + len, l_time->second_part, dec);
+  return len;
+}
+
+int my_date_to_str(const MYSQL_TIME *l_time, char *to)
+{
+  return sprintf(to, "%04u-%02u-%02u",
+                 l_time->year, l_time->month, l_time->day);
 }
 
 int my_timeval_to_str(const struct timeval *tm, char *to, uint dec)
@@ -343,6 +426,22 @@ void TIME_from_longlong_datetime_packed(MYSQL_TIME *ltime, longlong tmp)
   ltime->hour= (hms >> 12);
 
   ltime->time_type= MYSQL_TIMESTAMP_DATETIME;
+}
+
+void TIME_from_longlong_time_packed(MYSQL_TIME *ltime, longlong tmp)
+{
+  long hms;
+  if ((ltime->neg= (tmp < 0)))
+    tmp= -tmp;
+  hms= MY_PACKED_TIME_GET_INT_PART(tmp);
+  ltime->year=   (uint) 0;
+  ltime->month=  (uint) 0;
+  ltime->day=    (uint) 0;
+  ltime->hour=   (uint) (hms >> 12) % (1 << 10); /* 10 bits starting at 12th */
+  ltime->minute= (uint) (hms >> 6)  % (1 << 6);  /* 6 bits starting at 6th   */
+  ltime->second= (uint)  hms        % (1 << 6);  /* 6 bits starting at 0th   */
+  ltime->second_part= MY_PACKED_TIME_GET_FRAC_PART(tmp);
+  ltime->time_type= MYSQL_TIMESTAMP_TIME;
 }
 
 int calc_field_size(unsigned char column_type, const unsigned char *field_ptr, boost::uint32_t metadata)
@@ -942,7 +1041,7 @@ void Converter::to(std::string &str, const Value &val) const
       // snip from mysql/sql/log_event#log_event_print_value
       char buf[MAX_DATE_STRING_REP_LENGTH];
       MYSQL_TIME ltime;
-      longlong packed= my_datetime_packed_from_binary(val.storage(), val.metadata());
+      longlong packed= my_datetime_packed_from_binary((uchar *)val.storage(), val.metadata());
       TIME_from_longlong_datetime_packed(&ltime, packed);
       int buflen= my_datetime_to_str(&ltime, buf, val.metadata());
       str= boost::str(boost::format("%s") % buf);
@@ -957,6 +1056,16 @@ void Converter::to(std::string &str, const Value &val) const
       unsigned int time_min = (time_val % 10000) / 100;
       unsigned int time_hour = (time_val - time_min) / 10000;
       str = boost::str(boost::format("%02d:%02d:%02d") % time_hour % time_min % time_sec);
+      break;
+    }
+    case MYSQL_TYPE_TIME2:
+    {
+      char buf[MAX_DATE_STRING_REP_LENGTH];
+      MYSQL_TIME ltime;
+      longlong packed= my_time_packed_from_binary((uchar *)val.storage(), val.metadata());
+      TIME_from_longlong_time_packed(&ltime, packed);
+      int buflen= my_time_to_str(&ltime, buf, val.metadata());
+      str= boost::str(boost::format("%s") % buf);
       break;
     }
     case MYSQL_TYPE_YEAR:
