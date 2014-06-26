@@ -985,8 +985,20 @@ void Converter::to(std::string &str, const Value &val) const
       str= "not implemented";
       break;
     case MYSQL_TYPE_TIMESTAMP:
-      str= boost::lexical_cast<std::string>((boost::uint32_t)val.as_int32());
+    {
+      // Return '0000-00-00 00:00:00' for '0' timestamp value,
+      // to make it general format.
+      // '0' will be shown as '0000-00-00 00:00:00' on only mysql,
+      // but '0' will be '1970-01-01 00:00:00' on other databases.
+      boost::uint32_t val_uint = (boost::uint32_t)val.as_int32();
+      if (val_uint == 0) {
+        str= "0000-00-00 00:00:00";
+      } else {
+        str= boost::lexical_cast<std::string>(val_uint);
+      }
+      //str= boost::lexical_cast<std::string>((boost::uint32_t)val.as_int32());
       break;
+    }
     case MYSQL_TYPE_TIMESTAMP2:
     {
       // snip from mysql/sql/log_event#log_event_print_value
@@ -995,6 +1007,13 @@ void Converter::to(std::string &str, const Value &val) const
       my_timestamp_from_binary(&tm, val.storage(), val.metadata());
       int buflen= my_timeval_to_str(&tm, buf, val.metadata());
       str= boost::str(boost::format("%s") % buf);
+      // Return '0000-00-00 00:00:00' for '0' timestamp value,
+      // to make it general format.
+      // '0' will be shown as '0000-00-00 00:00:00' on only mysql,
+      // but '0' will be '1970-01-01 00:00:00' on other databases.
+      if (boost::lexical_cast<float>(str) == 0.0) {
+        str= "0000-00-00 00:00:00" + str.substr(1);  // add fraction part
+      }
     }
       break;
     case MYSQL_TYPE_LONGLONG:
