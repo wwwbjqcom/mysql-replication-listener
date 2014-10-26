@@ -231,10 +231,13 @@ tcp::socket *sync_connect_and_authenticate(boost::asio::io_service &io_service, 
    */
   std::ostream command_request_stream(&server_messages);
 
-  Protocol_chunk<boost::uint8_t> prot_command(COM_REGISTER_SLAVE);
+  boost::uint8_t val_command = COM_REGISTER_SLAVE;
+  Protocol_chunk<boost::uint8_t> prot_command(val_command);
   Protocol_chunk<boost::uint16_t> prot_connection_port(port);
-  Protocol_chunk<boost::uint32_t> prot_rpl_recovery_rank(0);
-  Protocol_chunk<boost::uint32_t> prot_server_id(1);
+  boost::uint32_t val_rpl_recovery_rank = 0;
+  Protocol_chunk<boost::uint32_t> prot_rpl_recovery_rank(val_rpl_recovery_rank);
+  boost::uint32_t val_server_id = 1;
+  Protocol_chunk<boost::uint32_t> prot_server_id(val_server_id);
 
   const char* env_libreplication_server_id = std::getenv("LIBREPLICATION_SERVER_ID");
 
@@ -247,7 +250,8 @@ tcp::socket *sync_connect_and_authenticate(boost::asio::io_service &io_service, 
     }
   }
 
-  Protocol_chunk<boost::uint32_t> prot_master_server_id(0);
+  boost::uint32_t val_master_server_id = 0;
+  Protocol_chunk<boost::uint32_t> prot_master_server_id(val_master_server_id);
 
   Protocol_chunk<boost::uint8_t> prot_report_host_strlen(host.size());
   Protocol_chunk<boost::uint8_t> prot_user_strlen(user.size());
@@ -311,10 +315,13 @@ tcp::socket *sync_connect_and_authenticate(boost::asio::io_service &io_service, 
 
   std::ostream command_request_stream(&server_messages);
 
-  Protocol_chunk<boost::uint8_t>  prot_command(COM_BINLOG_DUMP);
+  boost::uint8_t val_command = COM_BINLOG_DUMP;
+  Protocol_chunk<boost::uint8_t>  prot_command(val_command);
   Protocol_chunk<boost::uint32_t> prot_binlog_offset(offset); // binlog position to start at
-  Protocol_chunk<boost::uint16_t> prot_binlog_flags(0); // not used
-  Protocol_chunk<boost::uint32_t> prot_server_id(1); // must not be 0; see handshake package
+  boost::uint16_t val_binlog_flags = 0;
+  Protocol_chunk<boost::uint16_t> prot_binlog_flags(val_binlog_flags); // not used
+  boost::uint32_t val_server_id = 1;
+  Protocol_chunk<boost::uint32_t> prot_server_id(val_server_id); // must not be 0; see handshake package
 
   command_request_stream
           << prot_command
@@ -516,8 +523,10 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
     if (passwd.size() > 0)
       passwd_length= encrypt_password(reply, scramble_buff, passwd.c_str());
 
-    Protocol_chunk<boost::uint32_t> prot_client_flags((boost::uint32_t) CLIENT_BASIC_FLAGS);
-    Protocol_chunk<boost::uint32_t> prot_max_packet_size(MAX_PACKAGE_SIZE);
+    boost::uint32_t val_client_flags = (boost::uint32_t)CLIENT_BASIC_FLAGS;
+    Protocol_chunk<boost::uint32_t> prot_client_flags(val_client_flags);
+    boost::uint32_t val_max_packet_size = MAX_PACKAGE_SIZE;
+    Protocol_chunk<boost::uint32_t> prot_max_packet_size(val_max_packet_size);
     Protocol_chunk<boost::uint8_t>  prot_charset_number(handshake_package.server_language);
     Protocol_chunk<boost::uint8_t>  prot_filler_buffer(filler_buffer, 23);
     Protocol_chunk<boost::uint8_t>  prot_scramble_buffer_size((boost::uint8_t) passwd_length);
@@ -757,7 +766,8 @@ bool fetch_master_status(tcp::socket *socket, std::string *filename, unsigned lo
 
   std::ostream command_request_stream(&server_messages);
 
-  Protocol_chunk<boost::uint8_t> prot_command(COM_QUERY);
+  boost::uint8_t val_command = COM_QUERY;
+  Protocol_chunk<boost::uint8_t> prot_command(val_command);
 
   command_request_stream << prot_command
           << "SHOW MASTER STATUS";
@@ -790,7 +800,8 @@ bool fetch_binlogs_name_and_size(tcp::socket *socket, std::map<std::string, unsi
 
   std::ostream command_request_stream(&server_messages);
 
-  Protocol_chunk<boost::uint8_t> prot_command(COM_QUERY);
+  boost::uint8_t val_command = COM_QUERY;
+  Protocol_chunk<boost::uint8_t> prot_command(val_command);
 
   command_request_stream << prot_command
           << "SHOW BINARY LOGS";
