@@ -233,7 +233,8 @@ tcp::socket *sync_connect_and_authenticate(boost::asio::io_service &io_service, 
 
   boost::uint8_t val_command = COM_REGISTER_SLAVE;
   Protocol_chunk<boost::uint8_t> prot_command(val_command);
-  Protocol_chunk<boost::uint16_t> prot_connection_port(port);
+  boost::uint16_t val_port = port;
+  Protocol_chunk<boost::uint16_t> prot_connection_port(val_port);
   boost::uint32_t val_rpl_recovery_rank = 0;
   Protocol_chunk<boost::uint32_t> prot_rpl_recovery_rank(val_rpl_recovery_rank);
   boost::uint32_t val_server_id = 1;
@@ -253,9 +254,12 @@ tcp::socket *sync_connect_and_authenticate(boost::asio::io_service &io_service, 
   boost::uint32_t val_master_server_id = 0;
   Protocol_chunk<boost::uint32_t> prot_master_server_id(val_master_server_id);
 
-  Protocol_chunk<boost::uint8_t> prot_report_host_strlen(host.size());
-  Protocol_chunk<boost::uint8_t> prot_user_strlen(user.size());
-  Protocol_chunk<boost::uint8_t> prot_passwd_strlen(passwd.size());
+  boost::uint8_t val_report_host_strlen = host.size();
+  Protocol_chunk<boost::uint8_t> prot_report_host_strlen(val_report_host_strlen);
+  boost::uint8_t val_user_strlen = user.size();
+  Protocol_chunk<boost::uint8_t> prot_user_strlen(val_user_strlen);
+  boost::uint8_t val_passwd_strlen = passwd.size();
+  Protocol_chunk<boost::uint8_t> prot_passwd_strlen(val_passwd_strlen);
 
   command_request_stream << prot_command
           << prot_server_id
@@ -317,7 +321,8 @@ tcp::socket *sync_connect_and_authenticate(boost::asio::io_service &io_service, 
 
   boost::uint8_t val_command = COM_BINLOG_DUMP;
   Protocol_chunk<boost::uint8_t>  prot_command(val_command);
-  Protocol_chunk<boost::uint32_t> prot_binlog_offset(offset); // binlog position to start at
+  boost::uint32_t val_binlog_offset = offset;
+  Protocol_chunk<boost::uint32_t> prot_binlog_offset(val_binlog_offset); // binlog position to start at
   boost::uint16_t val_binlog_flags = 0;
   Protocol_chunk<boost::uint16_t> prot_binlog_flags(val_binlog_flags); // not used
   boost::uint32_t val_server_id = 1;
@@ -527,9 +532,11 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
     Protocol_chunk<boost::uint32_t> prot_client_flags(val_client_flags);
     boost::uint32_t val_max_packet_size = MAX_PACKAGE_SIZE;
     Protocol_chunk<boost::uint32_t> prot_max_packet_size(val_max_packet_size);
-    Protocol_chunk<boost::uint8_t>  prot_charset_number(handshake_package.server_language);
+    boost::uint8_t val_charset_number = handshake_package.server_language;
+    Protocol_chunk<boost::uint8_t>  prot_charset_number(val_charset_number);
     Protocol_chunk<boost::uint8_t>  prot_filler_buffer(filler_buffer, 23);
-    Protocol_chunk<boost::uint8_t>  prot_scramble_buffer_size((boost::uint8_t) passwd_length);
+    boost::uint8_t  val_scramble_buffer_size = (boost::uint8_t) passwd_length;
+    Protocol_chunk<boost::uint8_t>  prot_scramble_buffer_size(val_scramble_buffer_size);
     Protocol_chunk<boost::uint8_t>  prot_scamble_buffer((boost::uint8_t *)reply, passwd_length);
 
     request_stream << prot_client_flags
