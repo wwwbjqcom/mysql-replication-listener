@@ -703,8 +703,9 @@ int Binlog_tcp_driver::set_position(const std::string &str, unsigned long positi
   boost::asio::io_service io_service;
   tcp::socket *socket;
 
-  if ((socket= sync_connect_and_authenticate(io_service, m_user, m_passwd, m_host, m_port)) == 0)
-    return ERR_FAIL;
+  if ((socket= sync_connect_and_authenticate(io_service, m_user, m_passwd, m_host, m_port)) == 0) {
+    throw std::runtime_error("Connect or authentication error");
+  }
 
   std::map<std::string, unsigned long > binlog_map;
   fetch_binlogs_name_and_size(socket, binlog_map);
@@ -714,18 +715,25 @@ int Binlog_tcp_driver::set_position(const std::string &str, unsigned long positi
   std::map<std::string, unsigned long >::iterator binlog_itr= binlog_map.find(str);
 
   bool is_valid_position = true;
+  std::string err_message = "";
   /*
     If the file name isn't listed on the server we will fail here.
   */
-  if (binlog_itr == binlog_map.end())
+  if (binlog_itr == binlog_map.end()) {
+    err_message = "binlog file " + binlog_itr->first + " does not exist";
     is_valid_position = false;
+  }
 
   /*
     If the requested position is greater than the file size we will fail
     here.
   */
-  if (position > binlog_itr->second)
-    is_valid_position = true;
+  if (position > binlog_itr->second) {
+    err_message = "requested binlog position " + boost::lexical_cast<std::string>(position)
+                  + " is larger than the binlog file size (" + binlog_itr->first + ":"
+                  + boost::lexical_cast<std::string>(binlog_itr->second) + ")";
+    is_valid_position = false;
+  }
 
   /*
     Uppon return of connect we only know if we succesfully authenticated
@@ -737,7 +745,7 @@ int Binlog_tcp_driver::set_position(const std::string &str, unsigned long positi
   if (is_valid_position) {
     result = connect(m_user, m_passwd, m_host, m_port, str, position);
   } else {
-    result = connect(m_user, m_passwd, m_host, m_port);
+    throw std::runtime_error(err_message);
   }
   if (is_valid_position && result == 0) {
     return ERR_OK;
