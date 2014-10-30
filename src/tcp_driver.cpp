@@ -720,7 +720,7 @@ int Binlog_tcp_driver::set_position(const std::string &str, unsigned long positi
     If the file name isn't listed on the server we will fail here.
   */
   if (binlog_itr == binlog_map.end()) {
-    err_message = "binlog file " + binlog_itr->first + " does not exist";
+    err_message = "binlog file " + str + " does not exist on MySQL server";
     is_valid_position = false;
   }
 
@@ -731,7 +731,7 @@ int Binlog_tcp_driver::set_position(const std::string &str, unsigned long positi
   if (position > binlog_itr->second) {
     err_message = "requested binlog position " + boost::lexical_cast<std::string>(position)
                   + " is larger than the binlog file size (" + binlog_itr->first + ":"
-                  + boost::lexical_cast<std::string>(binlog_itr->second) + ")";
+                  + boost::lexical_cast<std::string>(binlog_itr->second) + ") on MySQL server";
     is_valid_position = false;
   }
 
