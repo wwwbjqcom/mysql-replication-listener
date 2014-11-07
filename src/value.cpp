@@ -444,6 +444,26 @@ void TIME_from_longlong_time_packed(MYSQL_TIME *ltime, longlong tmp)
   ltime->time_type= MYSQL_TIMESTAMP_TIME;
 }
 
+int string_column_size(boost::uint32_t metadata)
+{
+  unsigned int byte0 = metadata & 0xFF;
+  unsigned int byte1 = metadata >> 8;
+  unsigned int col_size;
+  if (byte0 != 0)
+  {
+    if ((byte0 & 0x30) != 0x30)
+    {
+      /* a long CHAR() field: see #37426 */
+      col_size = byte1 | (((byte0 & 0x30) ^ 0x30) << 4);
+    }
+    else
+      col_size = byte1;
+  }
+  else
+    col_size = byte1;
+  return col_size;
+}
+
 int calc_field_size(unsigned char column_type, const unsigned char *field_ptr, boost::uint32_t metadata)
 {
   boost::uint32_t length;
@@ -488,7 +508,16 @@ int calc_field_size(unsigned char column_type, const unsigned char *field_ptr, b
         because this field has the actual lengh stored in the first
         byte.
       */
-      length= (unsigned int) *field_ptr+1;
+      unsigned int col_size = string_column_size(metadata);
+
+      if (col_size >= 256)
+      {
+        length = (unsigned int) *(boost::uint16_t*)field_ptr + 2;
+      }
+      else
+      {
+        length = (unsigned int) *field_ptr+1;
+      }
       //DBUG_ASSERT(length != 0);
     }
     break;
@@ -646,9 +675,9 @@ char *Value::as_c_str(unsigned long &size) const
     metadata_length = m_metadata > 255 ? 2 : 1;
   } else {
     /*
-     Length encoded; First byte is length of string.
+     Length encoded; First byte or two is length of string.
     */
-    metadata_length = m_size > 251 ? 2: 1;
+    metadata_length = string_column_size(m_metadata) > 256 ? 2 : 1;
   }
 
   /*
