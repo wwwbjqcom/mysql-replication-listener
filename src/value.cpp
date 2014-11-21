@@ -1148,7 +1148,14 @@ void Converter::to(std::string &str, const Value &val) const
       }
 
       if (str_type == mysql::system::MYSQL_TYPE_SET) {
-        str = "not implemented";
+        const char* val_ptr = val.storage();
+        const int val_length = val.length();
+        unsigned long set_value = 0;
+        // length is 1, 2, 4 or 8
+        for ( int i = 0; i < val_length; i++ ) {
+          set_value += (static_cast<unsigned long>(val_ptr[i]) & 0xff) << ( 8 * i );
+        }
+        str = boost::str(boost::format("%u") % set_value);
         break;
       } else if (str_type == mysql::system::MYSQL_TYPE_ENUM) {
         unsigned int val_storage = static_cast<unsigned int>(*val.storage());
