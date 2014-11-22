@@ -1167,7 +1167,7 @@ void Converter::to(std::string &str, const Value &val) const
         const int val_length = val.length();
         boost::uint64_t bit_value = 0;
 
-        // length is 1, 2, 4 or 8
+        // length is between 1 and 8
         for ( int i = val_length - 1, cnt = 0; i >= 0; i--, cnt++ ) {
           bit_value += (static_cast<boost::uint64_t>(val_ptr[i]) & 0xff) << ( 8 * cnt );
         }
