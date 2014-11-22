@@ -1169,7 +1169,17 @@ void Converter::to(std::string &str, const Value &val) const
     }
       break;
     case MYSQL_TYPE_BIT:
-      str= "not implemented";
+      {
+        const char* val_ptr = val.storage();
+        const int val_length = val.length();
+        boost::uint64_t bit_value = 0;
+
+        // length is between 1 and 8
+        for ( int i = val_length - 1, cnt = 0; i >= 0; i--, cnt++ ) {
+          bit_value += (static_cast<boost::uint64_t>(val_ptr[i]) & 0xff) << ( 8 * cnt );
+        }
+        str = boost::str(boost::format("%u") % bit_value);
+      }
       break;
     case MYSQL_TYPE_NEWDECIMAL:
       convert_newdecimal(str, val);
