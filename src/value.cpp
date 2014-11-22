@@ -1165,11 +1165,11 @@ void Converter::to(std::string &str, const Value &val) const
       {
         const char* val_ptr = val.storage();
         const int val_length = val.length();
-        unsigned long bit_value = 0;
+        boost::uint64_t bit_value = 0;
 
         // length is 1, 2, 4 or 8
         for ( int i = val_length - 1, cnt = 0; i >= 0; i--, cnt++ ) {
-          bit_value += (static_cast<unsigned long>(val_ptr[i]) & 0xff) << ( 8 * cnt );
+          bit_value += (static_cast<boost::uint64_t>(val_ptr[i]) & 0xff) << ( 8 * cnt );
         }
         str = boost::str(boost::format("%u") % bit_value);
       }
