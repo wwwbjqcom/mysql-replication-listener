@@ -21,6 +21,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 #include "resultset_iterator.h"
 #include "protocol.h"
 #include "row_of_fields.h"
+#include <boost/lexical_cast.hpp>
 
 using namespace mysql;
 
@@ -50,6 +51,18 @@ void Result_set::digest_row_set()
     switch(m_current_state)
     {
       case RESULT_HEADER:
+        boost::uint8_t result_type;
+
+        result_type = response_stream.peek();
+        if (result_type == 0xff)
+        {
+          char dummy;
+          response_stream.read(&dummy, 1);  // discard the first char
+          struct system::st_error_package error_package;
+          system::prot_parse_error_message(response_stream, error_package, packet_length);
+          throw std::runtime_error("Error from server, code=" + boost::lexical_cast<std::string>(error_package.error_code) + ", message=\"" + error_package.message + "\"");
+        }
+
         system::digest_result_header(response_stream, m_field_count, m_extra);
         m_row_count= 0;
         m_current_state= FIELD_PACKETS;
