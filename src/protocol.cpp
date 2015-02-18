@@ -219,7 +219,6 @@ std::istream &operator>>(std::istream &is, Protocol &chunk)
 {
  if (chunk.is_length_encoded_binary())
   {
-    int ct= 0;
     is.read((char *)chunk.data(),1);
     unsigned char byte= *(unsigned char *)chunk.data();
     if (byte < 250)
@@ -230,24 +229,25 @@ std::istream &operator>>(std::istream &is, Protocol &chunk)
     else if (byte == 251)
     {
       // is this a row data packet? if so, then this column value is NULL
+      // TODO this returns 251 as a value, which is wrong.  Leaving it as is
+      // for now.
       chunk.collapse_size(1);
-      ct= 1;
+      return is;
     }
     else if (byte == 252)
     {
       chunk.collapse_size(2);
-      ct= 1;
     }
     else if(byte == 253)
     {
       chunk.collapse_size(3);
-      ct= 1;
     }
 
     /* Read remaining bytes */
     //is.read((char *)chunk.data(), chunk.size()-1);
     char ch;
     char *ptr= (char*)chunk.data();
+    int ct= 0;
     while(ct < chunk.size())
     {
       is.get(ch);
@@ -446,7 +446,7 @@ Row_event *proto_rows_event(std::istream &is, Log_event_header *header)
     bytes_read+=used_column_len;
 
   unsigned long row_len= header->event_length - bytes_read - LOG_EVENT_HEADER_SIZE + 1;
-  //std::cout << "Bytes read: " << bytes_read << " Bytes expected: " << rev->row_len << std::endl;
+  //std::cout << "Bytes read: " << bytes_read << " Bytes expected: " << row_len << std::endl;
   Protocol_chunk_vector proto_row(rev->row, row_len);
   is >> proto_row;
 
