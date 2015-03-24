@@ -2,7 +2,7 @@
 
 Name:		mysql-replication-listener
 Version:	0.0.47
-Release:	10%{?dist}
+Release:	11%{?dist}
 Summary:	A STL/Boost based C++ library used for connecting to a MySQL server and process the replication stream as a slave.
 
 Group:		Development/Libraries
