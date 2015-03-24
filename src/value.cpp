@@ -21,9 +21,27 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 #include "binlog_event.h"
 #include <iomanip>
 
+#define DIG_PER_DEC1 9
+
 using namespace mysql;
 using namespace mysql::system;
 namespace mysql {
+
+static const int dig2bytes[DIG_PER_DEC1 + 1] = {0, 1, 1, 2, 2, 3, 3, 4, 4, 4};
+
+int decimal_bin_size(int precision, int scale)
+{
+  int intg   = precision - scale;
+  int intg0  = intg / DIG_PER_DEC1;
+  int frac0  = scale / DIG_PER_DEC1;
+  int intg0x = intg - intg0 * DIG_PER_DEC1;
+  int frac0x = scale - frac0 * DIG_PER_DEC1;
+
+  return(
+    intg0 * sizeof(int32_t) + dig2bytes[intg0x] +
+    frac0 * sizeof(int32_t) + dig2bytes[frac0x]
+    );
+}
 
 uint32_t calc_field_size(unsigned char column_type, const unsigned char *field_ptr,
                     uint32_t metadata)
@@ -37,10 +55,12 @@ uint32_t calc_field_size(unsigned char column_type, const unsigned char *field_p
     length= metadata;
     break;
   case MYSQL_TYPE_NEWDECIMAL:
-    //length= my_decimal_get_binary_size(metadata_ptr[col] >> 8,
-    //                                   metadata_ptr[col] & 0xff);
-    length= 0;
+  {
+    int precision = (metadata & 0xff);
+    int scale = metadata >> 8;
+    length = decimal_bin_size(precision, scale);
     break;
+  }
   case MYSQL_TYPE_DECIMAL:
   case MYSQL_TYPE_FLOAT:
   case MYSQL_TYPE_DOUBLE:
@@ -55,9 +75,13 @@ uint32_t calc_field_size(unsigned char column_type, const unsigned char *field_p
   case MYSQL_TYPE_ENUM:
   case MYSQL_TYPE_STRING:
     {
-      unsigned char type= metadata >> 8U;
+      //unsigned char type= metadata >> 8U;
+      unsigned char type = metadata & 0xff;
       if ((type == MYSQL_TYPE_SET) || (type == MYSQL_TYPE_ENUM))
-        length= metadata & 0x00ff;
+      {
+        //length= metadata & 0x00ff;
+        length = (metadata & 0xff00) >> 8;
+      }
       else
       {
         /*
@@ -230,7 +254,14 @@ char *Value::as_c_str(unsigned long &size) const
    Size is length of the character string; not of the entire storage
   */
   size= m_size - metadata_length;
-  return const_cast<char *>(m_storage + metadata_length);
+  char *str = const_cast<char *>(m_storage + metadata_length);
+
+  if (m_type == MYSQL_TYPE_VARCHAR && m_metadata > 255) {
+    str++;
+    size--;
+  }
+
+  return str;
 }
 
 unsigned char *Value::as_blob(unsigned long &size) const
@@ -372,8 +403,18 @@ void Converter::to(std::string &str, const Value &val) const
       str= "not implemented";
       break;
     case MYSQL_TYPE_DATE:
-      str= "not implemented";
+    {
+      const char* val_storage = val.storage();
+      unsigned int date_val = (val_storage[0] & 0xff) + ((val_storage[1] & 0xff) << 8) + ((val_storage[2] & 0xff) << 16);
+      unsigned int date_year = date_val >> 9;
+      date_val -= (date_year << 9);
+      unsigned int date_month = date_val >> 5;
+      unsigned int date_day = date_val - (date_month << 5);
+      //str = boost::str(boost::format("%04d-%02d-%02d") % date_year % date_month % date_day);
+      sprintf(buffer, "%04d-%02d-%02d", date_year, date_month, date_day);
+      str= buffer;
       break;
+    }
     case MYSQL_TYPE_DATETIME:
     {
       uint64_t timestamp= val.as_int64();
@@ -397,11 +438,28 @@ void Converter::to(std::string &str, const Value &val) const
     }
       break;
     case MYSQL_TYPE_TIME:
-      str= "not implemented";
+    {
+      const char* val_storage = val.storage();
+      unsigned int time_val = (val_storage[0] & 0xff) + ((val_storage[1] & 0xff) << 8) + ((val_storage[2] & 0xff) << 16);
+      unsigned int time_sec = time_val % 100;
+      time_val -= time_sec;
+      unsigned int time_min = (time_val % 10000) / 100;
+      unsigned int time_hour = (time_val - time_min) / 10000;
+      //str = boost::str(boost::format("%02d:%02d:%02d") % time_hour % time_min % time_sec);
+      sprintf(buffer, "%02d:%02d:%02d", time_hour, time_min, time_sec);
+      str= buffer;
       break;
+    }
     case MYSQL_TYPE_YEAR:
-      str= "not implemented";
+    {
+      const char* val_storage = val.storage();
+      unsigned int year_val = (val_storage[0] & 0xff);
+      year_val = year_val > 0 ? (year_val + 1900) : 0;
+      //str = boost::str(boost::format("%04d") % year_val);
+      sprintf(buffer, "%04d", year_val);
+      str= buffer;
       break;
+    }
     case MYSQL_TYPE_NEWDATE:
       str= "not implemented";
       break;
@@ -419,6 +477,23 @@ void Converter::to(std::string &str, const Value &val) const
     break;
     case MYSQL_TYPE_STRING:
     {
+      unsigned char str_type = 0;
+
+      if (val.metadata()) {
+        str_type = val.metadata() & 0xff;
+      }
+
+      if (str_type == MYSQL_TYPE_SET) {
+        str = "not implemented";
+        break;
+      } else if (str_type == MYSQL_TYPE_ENUM) {
+        unsigned int val_storage = static_cast<unsigned int>(*val.storage());
+        //str = boost::str(boost::format("%u") % val_storage);
+        sprintf(buffer, "%u", val_storage);
+        str= buffer;
+        break;
+      }
+
       unsigned long size;
       char *ptr= val.as_c_str(size);
       str.append(ptr, size);
