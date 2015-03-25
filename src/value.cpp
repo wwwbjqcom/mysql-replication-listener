@@ -720,12 +720,12 @@ void Converter::to(std::string &str, const Value &val) const
       if (str_type == MYSQL_TYPE_SET) {
         const char* val_ptr = val.storage();
         const int val_length = val.length();
-        unsigned long set_value = 0;
+        uint64_t set_value = 0;
         // length is 1, 2, 4 or 8
         for ( int i = 0; i < val_length; i++ ) {
-          set_value += (static_cast<unsigned long>(val_ptr[i]) & 0xff) << ( 8 * i );
+          set_value += (static_cast<uint64_t>(val_ptr[i]) & 0xff) << ( 8 * i );
         }
-        sprintf(buffer, "%u", set_value);
+        sprintf(buffer, "%llu", set_value);
         str= buffer;
         break;
       } else if (str_type == MYSQL_TYPE_ENUM) {
@@ -745,13 +745,13 @@ void Converter::to(std::string &str, const Value &val) const
     {
       const char* val_ptr = val.storage();
       const int val_length = val.length();
-      unsigned long bit_value = 0;
+      uint64_t bit_value = 0;
 
       // length is 1, 2, 4 or 8
       for ( int i = val_length - 1, cnt = 0; i >= 0; i--, cnt++ ) {
-        bit_value += (static_cast<unsigned long>(val_ptr[i]) & 0xff) << ( 8 * cnt );
+        bit_value += (static_cast<uint64_t>(val_ptr[i]) & 0xff) << ( 8 * cnt );
       }
-      sprintf(buffer, "%u", bit_value);
+      sprintf(buffer, "%llu", bit_value);
       str= buffer;
     }
       break;
