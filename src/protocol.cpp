@@ -199,7 +199,6 @@ std::istream &operator>>(std::istream &is, Protocol &chunk)
 {
  if (chunk.is_length_encoded_binary())
   {
-    int ct= 0;
     is.read((char *)chunk.data(),1);
     unsigned char byte= *(unsigned char *)chunk.data();
     if (byte < 250)
@@ -210,24 +209,25 @@ std::istream &operator>>(std::istream &is, Protocol &chunk)
     else if (byte == 251)
     {
       // is this a row data packet? if so, then this column value is NULL
+      // TODO this returns 251 as a value, which is wrong.  Leaving it as is
+      // for now.
       chunk.collapse_size(1);
-      ct= 1;
+      return is;
     }
     else if (byte == 252)
     {
       chunk.collapse_size(2);
-      ct= 1;
     }
     else if(byte == 253)
     {
       chunk.collapse_size(3);
-      ct= 1;
     }
 
     /* Read remaining bytes */
     //is.read((char *)chunk.data(), chunk.size()-1);
     char ch;
     char *ptr= (char*)chunk.data();
+    int ct= 0;
     while(ct < chunk.size())
     {
       is.get(ch);
