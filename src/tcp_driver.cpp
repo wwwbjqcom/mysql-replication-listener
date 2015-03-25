@@ -162,6 +162,16 @@ int sync_connect_and_authenticate(MYSQL *conn, const std::string &user,
 
   uchar version_split[3];
 
+  /*
+    Set SSL options
+   */
+  if (opt_use_ssl)
+  {
+    mysql_ssl_set(conn, opt_ssl_key, opt_ssl_cert, opt_ssl_ca, opt_ssl_capath, opt_ssl_cipher);
+    mysql_options(conn, MYSQL_OPT_SSL_CRL, opt_ssl_crl);
+    mysql_options(conn, MYSQL_OPT_SSL_CRLPATH, opt_ssl_crlpath);
+  }
+  mysql_options(conn,MYSQL_OPT_SSL_VERIFY_SERVER_CERT, (char*)&opt_ssl_verify_server_cert);
 
 /*
   Attempts to establish a connection to a MySQL database engine
@@ -387,4 +397,14 @@ bool fetch_binlog_name_and_size(MYSQL *mysql, std::map<std::string, unsigned lon
   }
   return ERR_OK;
 }
+
+int Binlog_tcp_driver::set_ssl_ca(const char *filepath)
+{
+  char *buf = new char[strlen(filepath)];
+  strcpy(buf, filepath);
+  opt_ssl_ca= buf;
+  opt_use_ssl= 1;
+  return ERR_OK;
+}
+
 }} // end namespace mysql::system

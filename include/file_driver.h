@@ -52,6 +52,7 @@ public:
     int set_position(const std::string &str, unsigned long position);
     int get_position(std::string *str, unsigned long *position);
     int connect(const std::string &filename, ulong offset);
+    int set_ssl_ca(const char *filepath);
 private:
 
     unsigned long m_binlog_file_size;

@@ -82,6 +82,7 @@ public:
     int disconnect(void);
 
     int get_position(std::string *str, unsigned long *position);
+    int set_ssl_ca(const char *filepath);
     const std::string& user() const { return m_user; }
     const std::string& password() const { return m_passwd; }
     const std::string& host() const { return m_host; }
@@ -156,6 +157,8 @@ private:
     uint m_port;
     MYSQL *m_mysql;
     uint64_t m_total_bytes_transferred;
+
+
 };
 
 /**
@@ -169,12 +172,23 @@ bool fetch_master_status(MYSQL *mysql, std::string *filename,
 
 bool fetch_binlog_name_and_size(MYSQL *mysql, std::map<std::string, unsigned long> *binlog_map);
 
+/*
+ * SSL configuration
+ */
+static my_bool opt_use_ssl= 0;
+static char *opt_ssl_ca= 0;
+static char *opt_ssl_capath= 0;
+static char *opt_ssl_cert= 0;
+static char *opt_ssl_cipher= 0;
+static char *opt_ssl_key= 0;
+static char *opt_ssl_crl= 0;
+static char *opt_ssl_crlpath= 0;
+static my_bool opt_ssl_verify_server_cert= 0;
+
 int sync_connect_and_authenticate(MYSQL *mysql, const std::string &user,
                                   const std::string &passwd,
                                   const std::string &host, uint port,
                                   long offset= 4);
 } }
-
-
 
 #endif	/* TCP_DRIVER_INCLUDED */
