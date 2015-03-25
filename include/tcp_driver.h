@@ -47,7 +47,10 @@ public:
                       const std::string& host, uint port)
       : Binary_log_driver("", 4), m_host(host), m_user(user), m_passwd(passwd),
         m_port(port), m_waiting_event(0),
-        m_total_bytes_transferred(0), m_shutdown(false)
+        m_total_bytes_transferred(0), m_shutdown(false),
+        opt_use_ssl(0), opt_ssl_capath(0), opt_ssl_cert(0),
+        opt_ssl_cipher(0), opt_ssl_key(0), opt_ssl_crl(0),
+        opt_ssl_crlpath(0), opt_ssl_verify_server_cert(0)
     {
     }
 
@@ -124,6 +127,11 @@ private:
 
     bool m_shutdown;
 
+    int sync_connect_and_authenticate(MYSQL *mysql, const std::string &user,
+        const std::string &passwd,
+        const std::string &host, uint port,
+        long offset= 4);
+
     /**
      * each bin log event starts with a 19 byte long header
      * We use this sturcture every time we initiate an async
@@ -158,6 +166,18 @@ private:
     MYSQL *m_mysql;
     uint64_t m_total_bytes_transferred;
 
+    /*
+     * SSL configuration
+     */
+    my_bool opt_use_ssl;
+    char *opt_ssl_ca;
+    char *opt_ssl_capath;
+    char *opt_ssl_cert;
+    char *opt_ssl_cipher;
+    char *opt_ssl_key;
+    char *opt_ssl_crl;
+    char *opt_ssl_crlpath;
+    my_bool opt_ssl_verify_server_cert;
 
 };
 
@@ -172,23 +192,6 @@ bool fetch_master_status(MYSQL *mysql, std::string *filename,
 
 bool fetch_binlog_name_and_size(MYSQL *mysql, std::map<std::string, unsigned long> *binlog_map);
 
-/*
- * SSL configuration
- */
-static my_bool opt_use_ssl= 0;
-static char *opt_ssl_ca= 0;
-static char *opt_ssl_capath= 0;
-static char *opt_ssl_cert= 0;
-static char *opt_ssl_cipher= 0;
-static char *opt_ssl_key= 0;
-static char *opt_ssl_crl= 0;
-static char *opt_ssl_crlpath= 0;
-static my_bool opt_ssl_verify_server_cert= 0;
-
-int sync_connect_and_authenticate(MYSQL *mysql, const std::string &user,
-                                  const std::string &passwd,
-                                  const std::string &host, uint port,
-                                  long offset= 4);
 } }
 
 #endif	/* TCP_DRIVER_INCLUDED */

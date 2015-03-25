@@ -140,7 +140,7 @@ int Binlog_tcp_driver::connect(const std::string& user,
   @retval ERR_OK          success
   @retval Other Value     failure
 */
-int sync_connect_and_authenticate(MYSQL *conn, const std::string &user,
+int Binlog_tcp_driver::sync_connect_and_authenticate(MYSQL *conn, const std::string &user,
                                   const std::string &passwd,
                                   const std::string &host, uint port,
                                   long offset)
