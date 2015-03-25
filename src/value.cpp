@@ -588,10 +588,16 @@ void Converter::to(std::string &str, const Value &val) const
       str= "not implemented";
       break;
     case MYSQL_TYPE_TIMESTAMP:
-      sprintf(buffer, "%i", val.as_int32());
-      str= buffer;
+      {
+        uint32_t val_uint = (uint32_t)val.as_int32();
+        if (val_uint == 0) {
+          str= "0000-00-00 00:00:00";
+        } else {
+          sprintf(buffer, "%i", val_uint);
+          str= buffer;
+        }
+      }
       break;
-
     case MYSQL_TYPE_LONGLONG:
       sprintf(buffer, "%lld", val.as_int64());
       str= buffer;
@@ -742,6 +748,15 @@ void Converter::to(std::string &str, const Value &val) const
       int buflen= my_timeval_to_str(&tm, buf, val.metadata());
       sprintf(buffer, "%s", buf);
       str= buffer;
+      // Return '0000-00-00 00:00:00' for '0' timestamp value,
+      // to make it general format.
+      // '0' will be shown as '0000-00-00 00:00:00' on only mysql,
+      // but '0' will be '1970-01-01 00:00:00' on other databases.
+      float str_f;
+      sscanf(str.c_str(), "%f", &str_f);
+      if (str_f == 0.0) {
+        str= "0000-00-00 00:00:00" + str.substr(1);  // add fraction part
+      }
     }
       break;
     case MYSQL_TYPE_DATETIME2:
