@@ -45,6 +45,26 @@ int decimal_bin_size(int precision, int scale)
     );
 }
 
+int string_column_size(uint32_t metadata)
+{
+  unsigned int byte0 = metadata & 0xFF;
+  unsigned int byte1 = metadata >> 8;
+  unsigned int col_size;
+  if (byte0 != 0)
+  {
+    if ((byte0 & 0x30) != 0x30)
+    {
+      /* a long CHAR() field: see #37426 */
+      col_size = byte1 | (((byte0 & 0x30) ^ 0x30) << 4);
+    }
+    else
+      col_size = byte1;
+  }
+  else
+    col_size = byte1;
+  return col_size;
+}
+
 uint32_t calc_field_size(unsigned char column_type, const unsigned char *field_ptr,
                     uint32_t metadata)
 {
@@ -91,7 +111,16 @@ uint32_t calc_field_size(unsigned char column_type, const unsigned char *field_p
           because this field has the actual lengh stored in the first
           byte.
         */
-        length= (unsigned int) *field_ptr+1;
+        unsigned int col_size = string_column_size(metadata);
+
+        if (col_size >= 256)
+        {
+          length = (unsigned int) *(uint16_t*)field_ptr + 2;
+        }
+        else
+        {
+          length = (unsigned int) *field_ptr+1;
+        }
         //DBUG_ASSERT(length != 0);
       }
       break;
@@ -240,22 +269,23 @@ char *Value::as_c_str(unsigned long &size) const
     size= 0;
     return 0;
   }
-  /*
-   Length encoded; First byte is length of string.
-  */
-  int metadata_length= m_size > 251 ? 2: 1;
+
+  int metadata_length = 0;
+  if (m_type == MYSQL_TYPE_VARCHAR) {
+    metadata_length = m_metadata > 255 ? 2 : 1;
+  } else {
+    /*
+     Length encoded; First byte or two is length of string.
+    */
+    metadata_length = string_column_size(m_metadata) > 256 ? 2 : 1;
+  }
+
   /*
    Size is length of the character string; not of the entire storage
   */
   size= m_size - metadata_length;
-  char *str = const_cast<char *>(m_storage + metadata_length);
 
-  if (m_type == MYSQL_TYPE_VARCHAR && m_metadata > 255) {
-    str++;
-    size--;
-  }
-
-  return str;
+  return const_cast<char *>(m_storage + metadata_length);
 }
 
 unsigned char *Value::as_blob(unsigned long &size) const
