@@ -721,7 +721,7 @@ void Converter::to(std::string &str, const Value &val) const
         const char* val_ptr = val.storage();
         const int val_length = val.length();
         uint64_t set_value = 0;
-        // length is 1, 2, 4 or 8
+        // length is between 1 and 8
         for ( int i = 0; i < val_length; i++ ) {
           set_value += (static_cast<uint64_t>(val_ptr[i]) & 0xff) << ( 8 * i );
         }
