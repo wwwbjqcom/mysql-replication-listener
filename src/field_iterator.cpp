@@ -71,6 +71,9 @@ int lookup_metadata_field_size(enum_field_types field_type)
     case MYSQL_TYPE_FLOAT:
     case MYSQL_TYPE_BLOB:
     case MYSQL_TYPE_GEOMETRY:
+    case MYSQL_TYPE_TIME2:
+    case MYSQL_TYPE_TIMESTAMP2:
+    case MYSQL_TYPE_DATETIME2:
      return 1;
     case MYSQL_TYPE_BIT:
     case MYSQL_TYPE_VARCHAR:

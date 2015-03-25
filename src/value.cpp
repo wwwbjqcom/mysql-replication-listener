@@ -20,6 +20,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 #include "value.h"
 #include "binlog_event.h"
 #include <iomanip>
+// my_time.h is private header. This file needs to be copied to include/mysql directory manually.
+#include <my_time.h>
 
 #define DIG_PER_DEC1 9
 
@@ -173,22 +175,14 @@ uint32_t calc_field_size(unsigned char column_type, const unsigned char *field_p
       break;
     }
   case MYSQL_TYPE_TIME2:
-    if (metadata >  MAX_TIME_WIDTH)
-      length= 3 + (metadata - MAX_TIME_WIDTH)/2;
-    else
-      length= 3;
+    length= my_time_binary_length(metadata);
     break;
   case MYSQL_TYPE_TIMESTAMP2:
-    if (metadata > MAX_DATETIME_WIDTH)
-      length= 4 + (metadata - MAX_DATETIME_WIDTH)/2;
-    else
-      length= 4;
+    //TODO: metadata is not current. always 0.
+    length= my_timestamp_binary_length(metadata);
     break;
   case MYSQL_TYPE_DATETIME2:
-    if (metadata > MAX_DATETIME_WIDTH)
-      length= 5 + (metadata - MAX_DATETIME_WIDTH)/2;
-    else
-      length= 5;
+    length= my_datetime_binary_length(metadata);
     break;
   default:
     length= UINT_MAX;
@@ -727,6 +721,40 @@ void Converter::to(std::string &str, const Value &val) const
       break;
     case MYSQL_TYPE_GEOMETRY:
       str= "not implemented";
+      break;
+    case MYSQL_TYPE_TIME2:
+    {
+      char buf[MAX_DATE_STRING_REP_LENGTH];
+      MYSQL_TIME ltime;
+      longlong packed= my_time_packed_from_binary((uchar *)val.storage(), val.metadata());
+      TIME_from_longlong_time_packed(&ltime, packed);
+      int buflen= my_time_to_str(&ltime, buf, val.metadata());
+      sprintf(buffer, "%s", buf);
+      str= buffer;
+    }
+      break;
+    case MYSQL_TYPE_TIMESTAMP2:
+    {
+      // snip from mysql/sql/log_event#log_event_print_value
+      char buf[MAX_DATE_STRING_REP_LENGTH];
+      struct timeval tm;
+      my_timestamp_from_binary(&tm, (uchar *)val.storage(), val.metadata());
+      int buflen= my_timeval_to_str(&tm, buf, val.metadata());
+      sprintf(buffer, "%s", buf);
+      str= buffer;
+    }
+      break;
+    case MYSQL_TYPE_DATETIME2:
+    {
+      // snip from mysql/sql/log_event#log_event_print_value
+      char buf[MAX_DATE_STRING_REP_LENGTH];
+      MYSQL_TIME ltime;
+      longlong packed= my_datetime_packed_from_binary((uchar *)val.storage(), val.metadata());
+      TIME_from_longlong_datetime_packed(&ltime, packed);
+      int buflen= my_datetime_to_str(&ltime, buf, val.metadata());
+      sprintf(buffer, "%s", buf);
+      str= buffer;
+    }
       break;
     default:
       str= "not implemented";
