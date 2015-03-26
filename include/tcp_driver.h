@@ -48,9 +48,9 @@ public:
       : Binary_log_driver("", 4), m_host(host), m_user(user), m_passwd(passwd),
         m_port(port), m_waiting_event(0),
         m_total_bytes_transferred(0), m_shutdown(false),
-        opt_use_ssl(0), opt_ssl_capath(0), opt_ssl_cert(0),
-        opt_ssl_cipher(0), opt_ssl_key(0), opt_ssl_crl(0),
-        opt_ssl_crlpath(0), opt_ssl_verify_server_cert(0)
+        m_opt_use_ssl(0), m_opt_ssl_capath(0), m_opt_ssl_cert(0),
+        m_opt_ssl_cipher(0), m_opt_ssl_key(0), m_opt_ssl_crl(0),
+        m_opt_ssl_crlpath(0), m_opt_ssl_verify_server_cert(0)
     {
     }
 
@@ -169,15 +169,15 @@ private:
     /*
      * SSL configuration
      */
-    my_bool opt_use_ssl;
-    char *opt_ssl_ca;
-    char *opt_ssl_capath;
-    char *opt_ssl_cert;
-    char *opt_ssl_cipher;
-    char *opt_ssl_key;
-    char *opt_ssl_crl;
-    char *opt_ssl_crlpath;
-    my_bool opt_ssl_verify_server_cert;
+    my_bool m_opt_use_ssl;
+    char *m_opt_ssl_ca;
+    char *m_opt_ssl_capath;
+    char *m_opt_ssl_cert;
+    char *m_opt_ssl_cipher;
+    char *m_opt_ssl_key;
+    char *m_opt_ssl_crl;
+    char *m_opt_ssl_crlpath;
+    my_bool m_opt_ssl_verify_server_cert;
 
 };
 

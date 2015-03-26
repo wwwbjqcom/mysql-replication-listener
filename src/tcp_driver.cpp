@@ -165,13 +165,13 @@ int Binlog_tcp_driver::sync_connect_and_authenticate(MYSQL *conn, const std::str
   /*
     Set SSL options
    */
-  if (opt_use_ssl)
+  if (m_opt_use_ssl)
   {
-    mysql_ssl_set(conn, opt_ssl_key, opt_ssl_cert, opt_ssl_ca, opt_ssl_capath, opt_ssl_cipher);
-    mysql_options(conn, MYSQL_OPT_SSL_CRL, opt_ssl_crl);
-    mysql_options(conn, MYSQL_OPT_SSL_CRLPATH, opt_ssl_crlpath);
+    mysql_ssl_set(conn, m_opt_ssl_key, m_opt_ssl_cert, m_opt_ssl_ca, m_opt_ssl_capath, m_opt_ssl_cipher);
+    mysql_options(conn, MYSQL_OPT_SSL_CRL, m_opt_ssl_crl);
+    mysql_options(conn, MYSQL_OPT_SSL_CRLPATH, m_opt_ssl_crlpath);
   }
-  mysql_options(conn,MYSQL_OPT_SSL_VERIFY_SERVER_CERT, (char*)&opt_ssl_verify_server_cert);
+  mysql_options(conn,MYSQL_OPT_SSL_VERIFY_SERVER_CERT, (char*)&m_opt_ssl_verify_server_cert);
 
 /*
   Attempts to establish a connection to a MySQL database engine
@@ -402,8 +402,8 @@ int Binlog_tcp_driver::set_ssl_ca(const char *filepath)
 {
   char *buf = new char[strlen(filepath)];
   strcpy(buf, filepath);
-  opt_ssl_ca= buf;
-  opt_use_ssl= 1;
+  m_opt_ssl_ca= buf;
+  m_opt_use_ssl= 1;
   return ERR_OK;
 }
 
