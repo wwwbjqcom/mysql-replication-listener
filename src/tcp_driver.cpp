@@ -125,7 +125,7 @@ int Binlog_tcp_driver::connect(const std::string& user,
     start_binlog_dump(binlog_filename.c_str(), offset);
   else
     start_binlog_dump(binlog_file, m_binlog_offset);
-  m_connecting= 1;
+  m_connected= 1;
   return ERR_OK;
 }
 
@@ -315,13 +315,13 @@ int Binlog_tcp_driver::disconnect()
 {
   m_waiting_event= 0;
   mysql_close(m_mysql);
-  m_connecting= 0;
+  m_connected= 0;
   return ERR_OK;
 }
 
 my_bool Binlog_tcp_driver::connecting()
 {
-  return m_connecting;
+  return m_connected;
 }
 
 

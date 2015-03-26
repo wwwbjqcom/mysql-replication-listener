@@ -42,7 +42,7 @@ public:
   template <class TFilename>
   Binlog_file_driver(const TFilename& filename = TFilename(),
                      unsigned int offset = 0)
-    : Binary_log_driver(filename, offset), m_connecting(0)
+    : Binary_log_driver(filename, offset), m_connected(0)
   {
   }
 
@@ -68,7 +68,7 @@ private:
 
     Log_event_header m_event_log_header;
 
-    my_bool m_connecting;
+    my_bool m_connected;
 };
 
 } // namespace mysql::system
