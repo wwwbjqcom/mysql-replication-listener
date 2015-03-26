@@ -79,6 +79,11 @@ public:
   virtual int disconnect()= 0;
 
   /**
+   * Return true if connection is established
+   */
+  virtual my_bool connecting(void)= 0;
+
+  /**
    * Set ssl_ca file
    *
    * @param filename ssl ca file path

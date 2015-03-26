@@ -114,6 +114,10 @@ public:
   {
     return ERR_OK;
   }
+  virtual my_bool connecting()
+  {
+    return 0;
+  }
   virtual int set_ssl_ca(const std::string& filepath)
   {
     return ERR_OK;
@@ -183,6 +187,10 @@ public:
    */
   unsigned long get_position(std::string &filename);
   int disconnect();
+  /**
+   * Return true if connection is closed
+   */
+  my_bool connecting(void);
 
   /**
    * Set ssl_ca file

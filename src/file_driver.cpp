@@ -70,6 +70,7 @@ using namespace std;
     {
       return ERR_FAIL;
     }
+    m_connecting= 1;
     return ERR_OK;
   }
 
@@ -121,14 +122,20 @@ using namespace std;
     }
 
     m_bytes_read= position;
+    m_connecting= 1;
     return ERR_OK;
   }
   int Binlog_file_driver::disconnect()
   {
     m_binlog_file.close();
+    m_connecting= 0;
     return ERR_OK;
   }
 
+  my_bool Binlog_file_driver::connecting()
+  {
+    return m_connecting;
+  }
 
   int Binlog_file_driver::set_position(const string &str, ulong position)
   {

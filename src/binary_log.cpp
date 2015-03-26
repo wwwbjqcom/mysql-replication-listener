@@ -134,6 +134,10 @@ int Binary_log::connect()
 {
   return m_driver->connect();
 }
+my_bool Binary_log::connecting()
+{
+  return m_driver->connecting();
+}
 int Binary_log::set_ssl_ca(const std::string& filepath)
 {
   return m_driver->set_ssl_ca(filepath);
