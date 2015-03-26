@@ -319,7 +319,7 @@ int Binlog_tcp_driver::disconnect()
   return ERR_OK;
 }
 
-my_bool Binlog_tcp_driver::connecting()
+my_bool Binlog_tcp_driver::connected()
 {
   return m_connected;
 }

@@ -48,7 +48,7 @@ public:
 
     int connect();
     int disconnect();
-    my_bool connecting();
+    my_bool connected();
     int wait_for_next_event(mysql::Binary_log_event **event);
     int set_position(const std::string &str, unsigned long position);
     int get_position(std::string *str, unsigned long *position);

@@ -114,7 +114,7 @@ public:
   {
     return ERR_OK;
   }
-  virtual my_bool connecting()
+  virtual my_bool connected()
   {
     return 0;
   }
@@ -190,7 +190,7 @@ public:
   /**
    * Return true if connection is closed
    */
-  bool connecting(void);
+  bool connected(void);
 
   /**
    * Set ssl_ca file

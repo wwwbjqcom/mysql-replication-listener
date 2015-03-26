@@ -132,7 +132,7 @@ using namespace std;
     return ERR_OK;
   }
 
-  my_bool Binlog_file_driver::connecting()
+  my_bool Binlog_file_driver::connected()
   {
     return m_connected;
   }

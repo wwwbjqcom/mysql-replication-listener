@@ -84,7 +84,7 @@ public:
     /**
      * Return true if connection is established
      */
-    my_bool connecting(void);
+    my_bool connected(void);
 
     int get_position(std::string *str, unsigned long *position);
     int set_ssl_ca(const std::string& filepath);

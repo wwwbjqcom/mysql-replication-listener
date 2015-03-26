@@ -134,9 +134,9 @@ int Binary_log::connect()
 {
   return m_driver->connect();
 }
-bool Binary_log::connecting()
+bool Binary_log::connected()
 {
-  if (m_driver->connecting())
+  if (m_driver->connected())
     return true;
   else
     return false;
