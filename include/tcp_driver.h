@@ -47,7 +47,8 @@ public:
                       const std::string& host, uint port)
       : Binary_log_driver("", 4), m_host(host), m_user(user), m_passwd(passwd),
         m_port(port), m_waiting_event(0),
-        m_total_bytes_transferred(0), m_shutdown(false)
+        m_total_bytes_transferred(0), m_shutdown(false),
+        m_opt_use_ssl(0), m_opt_ssl_verify_server_cert(0)
     {
     }
 
@@ -82,6 +83,7 @@ public:
     int disconnect(void);
 
     int get_position(std::string *str, unsigned long *position);
+    int set_ssl_ca(const std::string& filepath);
     const std::string& user() const { return m_user; }
     const std::string& password() const { return m_passwd; }
     const std::string& host() const { return m_host; }
@@ -123,6 +125,13 @@ private:
 
     bool m_shutdown;
 
+    int sync_connect_and_authenticate(MYSQL *mysql, const std::string &user,
+        const std::string &passwd,
+        const std::string &host, uint port,
+        long offset= 4);
+
+    const char* opt_value(const std::string& opt_str);
+
     /**
      * each bin log event starts with a 19 byte long header
      * We use this sturcture every time we initiate an async
@@ -156,6 +165,21 @@ private:
     uint m_port;
     MYSQL *m_mysql;
     uint64_t m_total_bytes_transferred;
+
+    /*
+     * SSL configuration
+     */
+    my_bool m_opt_use_ssl;
+    //char *m_opt_ssl_ca;
+    std::string m_opt_ssl_ca;
+    std::string m_opt_ssl_capath;
+    std::string m_opt_ssl_cert;
+    std::string m_opt_ssl_cipher;
+    std::string m_opt_ssl_key;
+    std::string m_opt_ssl_crl;
+    std::string m_opt_ssl_crlpath;
+    my_bool m_opt_ssl_verify_server_cert;
+
 };
 
 /**
@@ -169,12 +193,6 @@ bool fetch_master_status(MYSQL *mysql, std::string *filename,
 
 bool fetch_binlog_name_and_size(MYSQL *mysql, std::map<std::string, unsigned long> *binlog_map);
 
-int sync_connect_and_authenticate(MYSQL *mysql, const std::string &user,
-                                  const std::string &passwd,
-                                  const std::string &host, uint port,
-                                  long offset= 4);
 } }
-
-
 
 #endif	/* TCP_DRIVER_INCLUDED */

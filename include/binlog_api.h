@@ -114,6 +114,10 @@ public:
   {
     return ERR_OK;
   }
+  virtual int set_ssl_ca(const std::string& filepath)
+  {
+    return ERR_OK;
+  }
 };
 
 class Content_handler;
@@ -179,6 +183,16 @@ public:
    */
   unsigned long get_position(std::string &filename);
   int disconnect();
+
+  /**
+   * Set ssl_ca file
+   *
+   * @param filename ssl ca file path
+   *
+   * @retval 0 Success
+   * @retval >0 Error code
+   */
+  int set_ssl_ca(const std::string& filepath);
 };
 
 }

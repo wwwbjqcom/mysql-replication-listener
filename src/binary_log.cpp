@@ -134,4 +134,9 @@ int Binary_log::connect()
 {
   return m_driver->connect();
 }
+int Binary_log::set_ssl_ca(const std::string& filepath)
+{
+  return m_driver->set_ssl_ca(filepath);
+}
+
 }
