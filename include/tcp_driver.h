@@ -47,7 +47,8 @@ public:
                       const std::string& host, uint port)
       : Binary_log_driver("", 4), m_host(host), m_user(user), m_passwd(passwd),
         m_port(port), m_waiting_event(0),
-        m_total_bytes_transferred(0), m_shutdown(false)
+        m_total_bytes_transferred(0), m_shutdown(false),
+        m_opt_use_ssl(0), m_opt_ssl_verify_server_cert(0)
     {
     }
 
