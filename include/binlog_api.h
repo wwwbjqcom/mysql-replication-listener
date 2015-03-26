@@ -190,7 +190,7 @@ public:
   /**
    * Return true if connection is closed
    */
-  my_bool connecting(void);
+  bool connecting(void);
 
   /**
    * Set ssl_ca file
