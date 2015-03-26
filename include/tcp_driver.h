@@ -129,7 +129,7 @@ private:
         const std::string &host, uint port,
         long offset= 4);
 
-    const char* opt_value(const std::string *opt_str);
+    const char* opt_value(const std::string& opt_str);
 
     /**
      * each bin log event starts with a 19 byte long header
