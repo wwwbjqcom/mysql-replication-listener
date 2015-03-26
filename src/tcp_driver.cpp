@@ -167,9 +167,10 @@ int Binlog_tcp_driver::sync_connect_and_authenticate(MYSQL *conn, const std::str
    */
   if (m_opt_use_ssl)
   {
-    mysql_ssl_set(conn, m_opt_ssl_key, m_opt_ssl_cert, m_opt_ssl_ca, m_opt_ssl_capath, m_opt_ssl_cipher);
-    mysql_options(conn, MYSQL_OPT_SSL_CRL, m_opt_ssl_crl);
-    mysql_options(conn, MYSQL_OPT_SSL_CRLPATH, m_opt_ssl_crlpath);
+    mysql_ssl_set(conn, opt_value(&m_opt_ssl_key), opt_value(&m_opt_ssl_cert), opt_value(&m_opt_ssl_ca),
+                        opt_value(&m_opt_ssl_capath), opt_value(&m_opt_ssl_cipher));
+    mysql_options(conn, MYSQL_OPT_SSL_CRL, opt_value(&m_opt_ssl_crl));
+    mysql_options(conn, MYSQL_OPT_SSL_CRLPATH, opt_value(&m_opt_ssl_crlpath));
   }
   mysql_options(conn,MYSQL_OPT_SSL_VERIFY_SERVER_CERT, (char*)&m_opt_ssl_verify_server_cert);
 
@@ -233,6 +234,14 @@ int Binlog_tcp_driver::sync_connect_and_authenticate(MYSQL *conn, const std::str
     return ERR_FAIL;
 
   return ERR_OK;
+}
+
+const char* Binlog_tcp_driver::opt_value(const std::string *opt_str)
+{
+  if (opt_str->empty())
+    return 0;
+  else
+    return opt_str->c_str();
 }
 
 void Binlog_tcp_driver::start_binlog_dump(const char *binlog_name,
@@ -337,7 +346,7 @@ int Binlog_tcp_driver::set_position(const std::string &str, ulong position)
   if (position > binlog_itr->second)
     return ERR_FAIL;
   disconnect();
-  
+
   if (connect(m_user, m_passwd, m_host, m_port, str, position))
     return ERR_CONNECT;
   return ERR_OK;
@@ -400,9 +409,7 @@ bool fetch_binlog_name_and_size(MYSQL *mysql, std::map<std::string, unsigned lon
 
 int Binlog_tcp_driver::set_ssl_ca(const char *filepath)
 {
-  char *buf = new char[strlen(filepath)];
-  strcpy(buf, filepath);
-  m_opt_ssl_ca= buf;
+  m_opt_ssl_ca= std::string(filepath);
   m_opt_use_ssl= 1;
   return ERR_OK;
 }

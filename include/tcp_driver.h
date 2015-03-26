@@ -47,10 +47,7 @@ public:
                       const std::string& host, uint port)
       : Binary_log_driver("", 4), m_host(host), m_user(user), m_passwd(passwd),
         m_port(port), m_waiting_event(0),
-        m_total_bytes_transferred(0), m_shutdown(false),
-        m_opt_use_ssl(0), m_opt_ssl_capath(0), m_opt_ssl_cert(0),
-        m_opt_ssl_cipher(0), m_opt_ssl_key(0), m_opt_ssl_crl(0),
-        m_opt_ssl_crlpath(0), m_opt_ssl_verify_server_cert(0)
+        m_total_bytes_transferred(0), m_shutdown(false)
     {
     }
 
@@ -132,6 +129,8 @@ private:
         const std::string &host, uint port,
         long offset= 4);
 
+    const char* opt_value(const std::string *opt_str);
+
     /**
      * each bin log event starts with a 19 byte long header
      * We use this sturcture every time we initiate an async
@@ -170,13 +169,14 @@ private:
      * SSL configuration
      */
     my_bool m_opt_use_ssl;
-    char *m_opt_ssl_ca;
-    char *m_opt_ssl_capath;
-    char *m_opt_ssl_cert;
-    char *m_opt_ssl_cipher;
-    char *m_opt_ssl_key;
-    char *m_opt_ssl_crl;
-    char *m_opt_ssl_crlpath;
+    //char *m_opt_ssl_ca;
+    std::string m_opt_ssl_ca;
+    std::string m_opt_ssl_capath;
+    std::string m_opt_ssl_cert;
+    std::string m_opt_ssl_cipher;
+    std::string m_opt_ssl_key;
+    std::string m_opt_ssl_crl;
+    std::string m_opt_ssl_crlpath;
     my_bool m_opt_ssl_verify_server_cert;
 
 };
