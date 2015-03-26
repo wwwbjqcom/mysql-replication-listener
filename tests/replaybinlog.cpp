@@ -262,7 +262,7 @@ int main(int argc, char** argv)
 
   if (argc > 2)
   {
-    binlog.set_ssl_ca(argv[2]);
+    binlog.set_ssl_ca(std::string(argv[2]));
   }
 
   /*

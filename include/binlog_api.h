@@ -114,7 +114,7 @@ public:
   {
     return ERR_OK;
   }
-  virtual int set_ssl_ca(const char *filepath)
+  virtual int set_ssl_ca(const std::string& filepath)
   {
     return ERR_OK;
   }
@@ -192,7 +192,7 @@ public:
    * @retval 0 Success
    * @retval >0 Error code
    */
-  int set_ssl_ca(const char *filepath);
+  int set_ssl_ca(const std::string& filepath);
 };
 
 }

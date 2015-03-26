@@ -86,7 +86,7 @@ public:
    * @retval 0 Success
    * @retval >0 Error code
    */
-  virtual int set_ssl_ca(const char *filepath)= 0;
+  virtual int set_ssl_ca(const std::string& filepath)= 0;
 
   Binary_log_event* parse_event(std::istream &sbuff, Log_event_header *header);
 

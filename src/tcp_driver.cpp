@@ -407,9 +407,9 @@ bool fetch_binlog_name_and_size(MYSQL *mysql, std::map<std::string, unsigned lon
   return ERR_OK;
 }
 
-int Binlog_tcp_driver::set_ssl_ca(const char *filepath)
+int Binlog_tcp_driver::set_ssl_ca(const std::string& filepath)
 {
-  m_opt_ssl_ca= std::string(filepath);
+  m_opt_ssl_ca= filepath;
   m_opt_use_ssl= 1;
   return ERR_OK;
 }

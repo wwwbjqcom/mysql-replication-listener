@@ -244,7 +244,7 @@ using namespace std;
     return ERR_EOF;
   }
 
-  int Binlog_file_driver::set_ssl_ca(const char *filepath)
+  int Binlog_file_driver::set_ssl_ca(const std::string& filepath)
   {
     return ERR_OK;
   }

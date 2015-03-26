@@ -82,7 +82,7 @@ public:
     int disconnect(void);
 
     int get_position(std::string *str, unsigned long *position);
-    int set_ssl_ca(const char *filepath);
+    int set_ssl_ca(const std::string& filepath);
     const std::string& user() const { return m_user; }
     const std::string& password() const { return m_passwd; }
     const std::string& host() const { return m_host; }
