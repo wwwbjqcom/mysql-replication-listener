@@ -42,13 +42,13 @@ public:
   template <class TFilename>
   Binlog_file_driver(const TFilename& filename = TFilename(),
                      unsigned int offset = 0)
-    : Binary_log_driver(filename, offset), m_connected(0)
+    : Binary_log_driver(filename, offset), m_connected(false)
   {
   }
 
     int connect();
     int disconnect();
-    my_bool connected();
+    bool connected();
     int wait_for_next_event(mysql::Binary_log_event **event);
     int set_position(const std::string &str, unsigned long position);
     int get_position(std::string *str, unsigned long *position);
@@ -68,7 +68,7 @@ private:
 
     Log_event_header m_event_log_header;
 
-    my_bool m_connected;
+    bool m_connected;
 };
 
 } // namespace mysql::system

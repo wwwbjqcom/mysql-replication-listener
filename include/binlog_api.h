@@ -114,9 +114,9 @@ public:
   {
     return ERR_OK;
   }
-  virtual my_bool connected()
+  virtual bool connected()
   {
-    return 0;
+    return false;
   }
   virtual int set_ssl_ca(const std::string& filepath)
   {

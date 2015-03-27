@@ -136,10 +136,7 @@ int Binary_log::connect()
 }
 bool Binary_log::connected()
 {
-  if (m_driver->connected())
-    return true;
-  else
-    return false;
+  m_driver->connected();
 }
 int Binary_log::set_ssl_ca(const std::string& filepath)
 {

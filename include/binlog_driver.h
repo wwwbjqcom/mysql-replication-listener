@@ -81,7 +81,7 @@ public:
   /**
    * Return true if connection is established
    */
-  virtual my_bool connected(void)= 0;
+  virtual bool connected(void)= 0;
 
   /**
    * Set ssl_ca file

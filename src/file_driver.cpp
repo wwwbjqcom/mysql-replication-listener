@@ -70,7 +70,7 @@ using namespace std;
     {
       return ERR_FAIL;
     }
-    m_connected= 1;
+    m_connected= true;
     return ERR_OK;
   }
 
@@ -122,17 +122,17 @@ using namespace std;
     }
 
     m_bytes_read= position;
-    m_connected= 1;
+    m_connected= true;
     return ERR_OK;
   }
   int Binlog_file_driver::disconnect()
   {
     m_binlog_file.close();
-    m_connected= 0;
+    m_connected= false;
     return ERR_OK;
   }
 
-  my_bool Binlog_file_driver::connected()
+  bool Binlog_file_driver::connected()
   {
     return m_connected;
   }
