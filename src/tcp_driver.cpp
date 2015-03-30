@@ -256,9 +256,11 @@ tcp::socket *sync_connect_and_authenticate(boost::asio::io_service &io_service, 
 
   boost::uint8_t val_report_host_strlen = host.size();
   Protocol_chunk<boost::uint8_t> prot_report_host_strlen(val_report_host_strlen);
-  boost::uint8_t val_user_strlen = user.size();
+  std::string report_user("mrl_user");
+  boost::uint8_t val_user_strlen = report_user.size();
   Protocol_chunk<boost::uint8_t> prot_user_strlen(val_user_strlen);
-  boost::uint8_t val_passwd_strlen = passwd.size();
+  std::string report_passwd("pw");
+  boost::uint8_t val_passwd_strlen = report_passwd.size();
   Protocol_chunk<boost::uint8_t> prot_passwd_strlen(val_passwd_strlen);
 
   command_request_stream << prot_command
@@ -266,9 +268,9 @@ tcp::socket *sync_connect_and_authenticate(boost::asio::io_service &io_service, 
           << prot_report_host_strlen
           << host
           << prot_user_strlen
-          << user
+          << report_user
           << prot_passwd_strlen
-          << passwd
+          << report_passwd
           << prot_connection_port
           << prot_rpl_recovery_rank
           << prot_master_server_id;
