@@ -30,6 +30,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 #include "value.h"
 #include "rowset.h"
 #include "row_of_fields.h"
+#include "binlog_socket.h"
 
 using namespace mysql;
 
@@ -72,8 +73,8 @@ public:
     typedef Result_set_iterator<Row_of_fields > iterator;
     typedef Result_set_iterator<Row_of_fields const > const_iterator;
 
-    Result_set(tcp::socket *socket) { source(socket); }
-    void source(tcp::socket *socket) { m_socket= socket; digest_row_set(); }
+    Result_set(system::Binlog_socket *binlog_socket) { source(binlog_socket); }
+    void source(system::Binlog_socket *binlog_socket) { m_binlog_socket = binlog_socket; digest_row_set(); }
     iterator begin();
     iterator end();
     const_iterator begin() const;
@@ -88,7 +89,7 @@ private:
     int m_row_count;
     std::vector<Row_of_fields > m_rows;
     String_storage m_storage;
-    tcp::socket *m_socket;
+    system::Binlog_socket *m_binlog_socket;
     typedef enum { RESULT_HEADER,
                    FIELD_PACKETS,
                    MARKER,
