@@ -37,6 +37,11 @@ public:
     return &m_socket;
   }
 
+  bool is_open()
+  {
+    return m_socket.is_open();
+  }
+
   void close()
   {
     m_socket.close();
