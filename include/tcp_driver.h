@@ -166,6 +166,13 @@ private:
      */
     void shutdown(void);
 
+
+    Binlog_socket* sync_connect_and_authenticate(boost::asio::io_service &io_service,
+                                                 const std::string &user,
+                                                 const std::string &passwd,
+                                                 const std::string &host,
+                                                 long port);
+
     boost::thread *m_event_loop;
     boost::asio::io_service m_io_service;
     Binlog_socket *m_socket;
@@ -244,12 +251,6 @@ bool fetch_binlogs_name_and_size(Binlog_socket *binlog_socket, std::map<std::str
 int authenticate(Binlog_socket *socket, const std::string& user,
                  const std::string& passwd,
                  const st_handshake_package &handshake_package);
-
-
-Binlog_socket* sync_connect_and_authenticate(boost::asio::io_service &io_service, const std::string &user,
-                              const std::string &passwd, const std::string &host, long port);
-
-
 } }
 
 #endif	/* _TCP_DRIVER_H */

@@ -91,7 +91,12 @@ static int hash_sha1(boost::uint8_t *output, ...);
   return 0;
 }
 
-Binlog_socket *sync_connect_and_authenticate(boost::asio::io_service &io_service, const std::string &user, const std::string &passwd, const std::string &host, long port)
+  Binlog_socket* Binlog_tcp_driver::sync_connect_and_authenticate(
+    boost::asio::io_service &io_service,
+    const std::string &user,
+    const std::string &passwd,
+    const std::string &host,
+    long port)
 {
 
   tcp::resolver resolver(io_service);
