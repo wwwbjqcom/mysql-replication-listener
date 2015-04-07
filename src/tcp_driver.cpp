@@ -110,10 +110,10 @@ static int hash_sha1(boost::uint8_t *output, ...);
   Binlog_socket *binlog_socket;
 
   //TODO:
-  if (false) {
+  if (!m_opt_ssl_ca.empty()) {
     boost::asio::ssl::context ctx(boost::asio::ssl::context::sslv23);
     ctx.set_verify_mode(boost::asio::ssl::verify_peer);
-    ctx.load_verify_file("rds-combined-ca-bundle.pem");
+    ctx.load_verify_file(m_opt_ssl_ca);
     binlog_socket = new Binlog_socket(io_service, ctx);
   } else {
     binlog_socket = new Binlog_socket(io_service);
@@ -924,6 +924,12 @@ int encrypt_password(boost::uint8_t *reply,   /* buffer at least EVP_MAX_MD_SIZE
   for ( i=0 ; i<length_reply ; ++i )
     reply[i] = hash_stage1[i] ^ reply[i];
   return length_reply;
+}
+
+int Binlog_tcp_driver::set_ssl_ca(const std::string& filepath)
+{
+  m_opt_ssl_ca= filepath;
+  return ERR_OK;
 }
 
 }} // end namespace mysql::system

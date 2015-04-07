@@ -75,6 +75,8 @@ public:
 
     int get_position(std::string *str, unsigned long *position);
 
+    int set_ssl_ca(const std::string& filepath);
+
     const std::string& user() const { return m_user; }
     const std::string& password() const { return m_passwd; }
     const std::string& host() const { return m_host; }
@@ -173,6 +175,7 @@ private:
                                                  const std::string &host,
                                                  long port);
 
+
     boost::thread *m_event_loop;
     boost::asio::io_service m_io_service;
     Binlog_socket *m_socket;
@@ -233,6 +236,18 @@ private:
     boost::uint64_t m_total_bytes_transferred;
 
 
+    /*
+     * SSL configuration
+     */
+    //bool m_opt_use_ssl;
+    std::string m_opt_ssl_ca;
+    //std::string m_opt_ssl_capath;
+    //std::string m_opt_ssl_cert;
+    //std::string m_opt_ssl_cipher;
+    //std::string m_opt_ssl_key;
+    //std::string m_opt_ssl_crl;
+    //std::string m_opt_ssl_crlpath;
+    //bool m_opt_ssl_verify_server_cert;
 };
 
 /**

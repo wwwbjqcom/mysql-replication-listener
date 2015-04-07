@@ -72,6 +72,16 @@ public:
    */
   virtual int get_position(std::string *filename_ptr, unsigned long *position_ptr) = 0;
 
+  /**
+   * Set ssl_ca file
+   *
+   * @param filename ssl ca file path
+   *
+   * @retval 0 Success
+   * @retval >0 Error code
+   */
+  virtual int set_ssl_ca(const std::string& filepath)= 0;
+
   Binary_log_event* parse_event(std::istream &sbuff, Log_event_header *header);
 
 protected:
