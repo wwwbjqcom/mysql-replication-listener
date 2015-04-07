@@ -91,6 +91,8 @@ static int hash_sha1(boost::uint8_t *output, ...);
   return 0;
 }
 
+
+
   Binlog_socket* Binlog_tcp_driver::sync_connect_and_authenticate(
     boost::asio::io_service &io_service,
     const std::string &user,
@@ -250,6 +252,8 @@ static int hash_sha1(boost::uint8_t *output, ...);
   /*
    * SSL start(optional)
    */
+  if (binlog_socket->is_ssl())
+    start_ssl(binlog_socket, handshake_package);
 
 
   if (authenticate(binlog_socket, user, passwd, handshake_package))
@@ -527,6 +531,44 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
                                       boost::asio::placeholders::error,
                                       boost::asio::placeholders::bytes_transferred));
 }
+
+    void start_ssl(Binlog_socket *binlog_socket, struct st_handshake_package &handshake_package)
+{
+  boost::asio::streambuf ssl_request;
+  std::ostream request_stream(&ssl_request);
+
+  boost::uint8_t filler_buffer[23];
+  memset((char *) filler_buffer, '\0', 23);
+
+  boost::uint32_t val_client_flags = (boost::uint32_t)CLIENT_SSL_FLAGS;
+  Protocol_chunk<boost::uint32_t> prot_client_flags(val_client_flags);
+  boost::uint32_t val_max_packet_size = MAX_PACKAGE_SIZE;
+  Protocol_chunk<boost::uint32_t> prot_max_packet_size(val_max_packet_size);
+  boost::uint8_t val_charset_number = handshake_package.server_language;
+  Protocol_chunk<boost::uint8_t>  prot_charset_number(val_charset_number);
+  Protocol_chunk<boost::uint8_t>  prot_filler_buffer(filler_buffer, 23);
+
+  request_stream << prot_client_flags
+                 << prot_max_packet_size
+                 << prot_charset_number
+                 << prot_filler_buffer;
+
+  int size=ssl_request.size();
+  char ssl_packet_header[4];
+  write_packet_header(ssl_packet_header, size, 1);
+
+  // Send client flags (SSL enabled)
+  boost::asio::write(binlog_socket->m_socket,
+                     boost::asio::buffer(ssl_packet_header, 4),
+                     boost::asio::transfer_at_least(4));
+  boost::asio::write(binlog_socket->m_socket,
+                     ssl_request,
+                     boost::asio::transfer_at_least(size));
+
+  // handshake for SSL
+  binlog_socket->m_ssl_socket->handshake(boost::asio::ssl::stream_base::client);
+}
+
 
     int authenticate(Binlog_socket *binlog_socket, const std::string& user, const std::string& passwd,
                      const st_handshake_package &handshake_package)

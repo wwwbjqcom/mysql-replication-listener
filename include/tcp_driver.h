@@ -263,6 +263,10 @@ bool fetch_master_status(Binlog_socket *binlog_socket, std::string *filename, un
  */
 bool fetch_binlogs_name_and_size(Binlog_socket *binlog_socket, std::map<std::string, unsigned long> &binlog_map);
 
+
+void start_ssl(Binlog_socket *binlog_socket,
+                                  struct st_handshake_package &handshake_package);
+
 int authenticate(Binlog_socket *socket, const std::string& user,
                  const std::string& passwd,
                  const st_handshake_package &handshake_package);

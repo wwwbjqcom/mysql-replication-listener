@@ -128,6 +128,9 @@ struct st_error_package
 #define CLIENT_BASIC_FLAGS (((CLIENT_ALL_FLAGS & ~CLIENT_SSL) \
                                                & ~CLIENT_COMPRESS) \
                                                & ~CLIENT_SSL_VERIFY_SERVER_CERT)
+#define CLIENT_SSL_FLAGS ((CLIENT_ALL_FLAGS & ~CLIENT_COMPRESS) \
+                                            & ~CLIENT_SSL_VERIFY_SERVER_CERT)
+
 enum enum_server_command
 {
   COM_SLEEP, COM_QUIT, COM_INIT_DB, COM_QUERY, COM_FIELD_LIST,
