@@ -267,7 +267,6 @@ static int hash_sha1(boost::uint8_t *output, ...);
    * Register slave to master
    */
   register_slave_to_master(binlog_socket, server_messages, host, port);
-    throw std::runtime_error("Slave to master registration failed.");
 
   return binlog_socket;
 }
@@ -662,7 +661,7 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
 
   try {
     // Send the request.
-    write_request(binlog_socket, server_messages, binlog_socket->get_and_increment_packet_number());
+    write_request(binlog_socket, server_messages, binlog_socket->reset_and_increment_packet_number());
   } catch( boost::system::error_code e)
   {
     throw std::runtime_error("Boost system error: " + e.message());
