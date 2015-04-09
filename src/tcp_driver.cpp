@@ -302,7 +302,6 @@ static int hash_sha1(boost::uint8_t *output, ...);
     void Binlog_tcp_driver::start_binlog_dump(const std::string &binlog_file_name, size_t offset)
 {
   boost::asio::streambuf server_messages;
-
   std::ostream command_request_stream(&server_messages);
 
   boost::uint8_t val_command = COM_BINLOG_DUMP;
@@ -321,15 +320,8 @@ static int hash_sha1(boost::uint8_t *output, ...);
           << prot_server_id
           << binlog_file_name;
 
-  int size=server_messages.size();
-  char command_packet_header[4];
-  write_packet_header(command_packet_header, size, 0);
-
-  // Send the request.
-  m_socket->write(boost::asio::buffer(command_packet_header, 4),
-                  boost::asio::transfer_at_least(4));
-  m_socket->write(server_messages,
-                  boost::asio::transfer_at_least(size));
+  // Send request
+  write_request(m_socket, server_messages, m_socket->reset_and_increment_packet_number());
 
   /*
    Start receiving binlog events.
@@ -874,24 +866,11 @@ bool fetch_master_status(Binlog_socket *binlog_socket, std::string *filename, un
 
   command_request_stream << prot_command
           << "SHOW MASTER STATUS";
-  int body_size = server_messages.size();
 
-  // Command header
-  int header_size = 4;
-  char command_packet_header[4];
-  int packet_num = binlog_socket->is_ssl() ? 3 : 0;
-  write_packet_header(command_packet_header, body_size, packet_num);
+  // Send request
+  write_request(binlog_socket, server_messages, binlog_socket->reset_and_increment_packet_number());
 
-  // Make request buf
-  int total_size = body_size + header_size;
-  boost::asio::streambuf request_buf;
-  std::ostream request_stream(&request_buf);
-  request_stream.write(command_packet_header, header_size);
-  request_stream << &server_messages;
-
-  // Send the request.
-  binlog_socket->write(request_buf, boost::asio::transfer_at_least(total_size));
-
+  // Get response
   Result_set result_set(binlog_socket);
 
   Converter conv;
@@ -918,14 +897,10 @@ bool fetch_binlogs_name_and_size(Binlog_socket *binlog_socket, std::map<std::str
   command_request_stream << prot_command
           << "SHOW BINARY LOGS";
 
-  int size=server_messages.size();
-  char command_packet_header[4];
-  write_packet_header(command_packet_header, size, 0);
+  // Send request
+  write_request(binlog_socket, server_messages, binlog_socket->reset_and_increment_packet_number());
 
-  // Send the request.
-  binlog_socket->write(boost::asio::buffer(command_packet_header, 4), boost::asio::transfer_at_least(4));
-  binlog_socket->write(server_messages, boost::asio::transfer_at_least(size));
-
+  // Get response
   Result_set result_set(binlog_socket);
 
   Converter conv;
