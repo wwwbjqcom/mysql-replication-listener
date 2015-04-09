@@ -584,12 +584,11 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
     /*
      * Send authentication package
      */
-    boost::asio::streambuf auth_request_header;
+    // Auth body
     boost::asio::streambuf auth_request;
     std::string database("mysql"); // 0 terminated
 
-
-    std::ostream request_stream(&auth_request);
+    std::ostream auth_request_stream(&auth_request);
 
     boost::uint8_t filler_buffer[23];
     memset((char *) filler_buffer, '\0', 23);
@@ -616,26 +615,31 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
     Protocol_chunk<boost::uint8_t>  prot_scramble_buffer_size(val_scramble_buffer_size);
     Protocol_chunk<boost::uint8_t>  prot_scamble_buffer((boost::uint8_t *)reply, passwd_length);
 
-    request_stream << prot_client_flags
-                   << prot_max_packet_size
-                   << prot_charset_number
-                   << prot_filler_buffer
-                   << user << '\0'
-                   << prot_scramble_buffer_size
-                   << prot_scamble_buffer
-                   << database << '\0';
+    auth_request_stream << prot_client_flags
+                        << prot_max_packet_size
+                        << prot_charset_number
+                        << prot_filler_buffer
+                        << user << '\0'
+                        << prot_scramble_buffer_size
+                        << prot_scamble_buffer
+                        << database << '\0';
 
+    int body_size=auth_request.size();
 
-    int size=auth_request.size();
-    char auth_packet_header[4];
+    // Auth header
+    int header_size = 4;
+    char auth_packet_header[header_size];
+    write_packet_header(auth_packet_header, body_size, 1);
 
-    write_packet_header(auth_packet_header, size, 1);
+    // Make request buf
+    int total_size = body_size + header_size;
+    boost::asio::streambuf request_buf;
+    std::ostream request_stream(&request_buf);
+    request_stream.write(auth_packet_header, header_size);
+    request_stream << &auth_request;
 
-    /*
-     *  Send the request.
-     */
-    binlog_socket->write(boost::asio::buffer(auth_packet_header, 4), boost::asio::transfer_at_least(4));
-    binlog_socket->write(auth_request, boost::asio::transfer_at_least(size));
+    // Send request
+    binlog_socket->write(request_buf, boost::asio::transfer_at_least(total_size));
 
     /*
      * Get server authentication response
