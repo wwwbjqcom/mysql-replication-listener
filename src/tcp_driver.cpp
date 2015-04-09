@@ -241,13 +241,10 @@ static int hash_sha1(boost::uint8_t *output, ...);
   if (inbuffer < 0)
     inbuffer=0;
 
-  boost::asio::read(binlog_socket->m_socket, server_messages, boost::asio::transfer_at_least(packet_length - inbuffer));
+  binlog_socket->read(server_messages, boost::asio::transfer_at_least(packet_length - inbuffer));
   std::istream server_stream(&server_messages);
-
   struct st_handshake_package handshake_package;
-
   proto_get_handshake_package(server_stream, handshake_package, packet_length);
-
 
   /*
    * SSL start(optional)
