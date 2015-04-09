@@ -102,60 +102,6 @@ protected:
                 const std::string& binlog_filename="", size_t offset=4);
 
 private:
-    /*
-     * Start ssl handshaking with mysql server
-     */
-    void start_ssl(Binlog_socket *binlog_socket, struct st_handshake_package &handshake_package);
-
-    /*
-     * Send authenticate request and handle the response
-     */
-    int authenticate(Binlog_socket *socket, const std::string& user,
-                     const std::string& passwd,
-                     const st_handshake_package &handshake_package);
-
-    /*
-     * Register slave to master
-     */
-    int register_slave_to_master(Binlog_socket *binlog_socket,
-                                 boost::asio::streambuf &server_messages,
-                                 const std::string& host, long port);
-
-    /**
-     * Write a request with header packet
-     * @param binlog_socket
-     * @param request_body_buf buffer content for sending to mysql-server
-     * @param packet_number Packet number in header data.
-     */
-    std::size_t write_request(Binlog_socket *binlog_socket,
-                              boost::asio::streambuf &request_body_buf,
-                              std::size_t packet_number);
-
-    /**
-     * Write a request with header packet
-     * packet number will be set automatically
-     * @param binlog_socket
-     * @param request_body_buf buffer content for sending to mysql-server
-     */
-    std::size_t write_request(Binlog_socket *binlog_socket,
-                              boost::asio::streambuf &request_body_buf);
-    /**
-     * Write a request with header packet
-     * member's binlog_socket will be used.
-     * @param request_body_buf buffer content for sending to mysql-server
-     * @param packet_number Packet number in header data.
-     */
-    std::size_t write_request(boost::asio::streambuf &request_body_buf,
-                              std::size_t packet_number);
-
-    /**
-     * Write a request with header packet
-     * member's binlog_socket will be used.
-     * packet number will be set automatically
-     * @param request_body_buf buffer content for sending to mysql-server
-     */
-    std::size_t write_request(boost::asio::streambuf &request_body_buf);
-
 
     /**
      * Request a binlog dump and starts the event loop in a new thread
@@ -307,6 +253,44 @@ private:
     //std::string m_opt_ssl_crlpath;
     //bool m_opt_ssl_verify_server_cert;
 };
+
+/*
+ * Start ssl handshaking with mysql server
+ */
+void start_ssl(Binlog_socket *binlog_socket, struct st_handshake_package &handshake_package);
+
+/*
+ * Send authenticate request and handle the response
+ */
+int authenticate(Binlog_socket *socket, const std::string& user,
+    const std::string& passwd,
+    const st_handshake_package &handshake_package);
+
+/*
+ * Register slave to master
+ */
+int register_slave_to_master(Binlog_socket *binlog_socket,
+    boost::asio::streambuf &server_messages,
+    const std::string& host, long port);
+
+/**
+ * Write a request with header packet
+ * @param binlog_socket
+ * @param request_body_buf buffer content for sending to mysql-server
+ * @param packet_number Packet number in header data.
+ */
+std::size_t write_request(Binlog_socket *binlog_socket,
+    boost::asio::streambuf &request_body_buf,
+    std::size_t packet_number);
+
+/**
+ * Write a request with header packet
+ * packet number will be set automatically
+ * @param binlog_socket
+ * @param request_body_buf buffer content for sending to mysql-server
+ */
+std::size_t write_request(Binlog_socket *binlog_socket,
+    boost::asio::streambuf &request_body_buf);
 
 /**
  * Sends a SHOW MASTER STATUS command to the server and retrieve the
