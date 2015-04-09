@@ -13,14 +13,14 @@ namespace system {
 class Binlog_socket {
 public:
   Binlog_socket(boost::asio::io_service& io_service)
-    : m_socket(io_service), m_ssl_flag(false), m_handshake_flag(false)
+    : m_socket(io_service), m_ssl_flag(false), m_handshake_flag(false), m_packet_number(0)
   {
     m_ssl_socket = NULL;
     m_ssl_context = NULL;
   }
 
   Binlog_socket(boost::asio::io_service& io_service, boost::asio::ssl::context *ssl_context)
-    : m_socket(io_service), m_ssl_flag(true), m_handshake_flag(false)
+    : m_socket(io_service), m_ssl_flag(true), m_handshake_flag(false), m_packet_number(0)
   {
     m_ssl_socket = new boost::asio::ssl::stream<boost::asio::ip::tcp::socket&>(m_socket, *ssl_context);
     m_ssl_context = ssl_context;
@@ -72,6 +72,34 @@ public:
       m_handshake_flag = true;
     }
   }
+
+  /**
+   * Packet number (for sequence id of mysql packet)
+   * http://dev.mysql.com/doc/internals/en/mysql-packet.html
+   */
+
+  std::size_t get_and_increment_packet_number()
+  {
+    return m_packet_number++;
+  }
+
+  std::size_t reset_and_increment_packet_number()
+  {
+    m_packet_number = 1;
+    return 0;
+  }
+
+  std::size_t packet_number()
+  {
+    return m_packet_number;
+  }
+
+  void set_packet_number(std::size_t new_num)
+  {
+    m_packet_number = new_num;
+  }
+
+
 
 
   /*
@@ -179,6 +207,7 @@ public:
 
   bool m_ssl_flag;
   bool m_handshake_flag;
+  std::size_t m_packet_number;  // for request header
   boost::asio::ip::tcp::socket m_socket;
   boost::asio::ssl::stream<boost::asio::ip::tcp::socket&> *m_ssl_socket;
   boost::asio::ssl::context *m_ssl_context;

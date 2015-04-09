@@ -247,6 +247,11 @@ static int hash_sha1(boost::uint8_t *output, ...);
   proto_get_handshake_package(server_stream, handshake_package, packet_length);
 
   /*
+   * Set 1 to packet number
+   */
+  binlog_socket->set_packet_number(1);
+
+  /*
    * SSL start(optional)
    */
   if (binlog_socket->is_ssl())
@@ -297,7 +302,6 @@ static int hash_sha1(boost::uint8_t *output, ...);
 
     std::size_t Binlog_tcp_driver::write_request(boost::asio::streambuf &request_body_buf)
 {
-  //TODO: Increment and set packet number
   return write_request(request_body_buf, 0);
 }
 
@@ -509,7 +513,7 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
                      << prot_filler_buffer;
 
   // Send ssl request
-  write_request(binlog_socket, ssl_request, 1);
+  write_request(binlog_socket, ssl_request, binlog_socket->get_and_increment_packet_number());
 
   // handshake for SSL
   binlog_socket->handshake();
@@ -566,8 +570,7 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
                         << database << '\0';
 
     // Send auth request
-    int packet_num = binlog_socket->is_ssl() ? 2 : 1;
-    write_request(binlog_socket, auth_request, packet_num);
+    write_request(binlog_socket, auth_request, binlog_socket->get_and_increment_packet_number());
 
     /*
      * Get server authentication response
@@ -653,8 +656,7 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
 
   try {
     // Send the request.
-    int packet_num = binlog_socket->is_ssl() ? 3 : 2;
-    write_request(binlog_socket, server_messages, packet_num);
+    write_request(binlog_socket, server_messages, binlog_socket->get_and_increment_packet_number());
   } catch( boost::system::error_code e)
   {
     throw std::runtime_error("Boost system error: " + e.message());
