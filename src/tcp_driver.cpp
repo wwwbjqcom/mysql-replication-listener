@@ -629,7 +629,8 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
     // Auth header
     int header_size = 4;
     char auth_packet_header[header_size];
-    write_packet_header(auth_packet_header, body_size, 1);
+    int packet_num = binlog_socket->is_ssl() ? 2 : 1;
+    write_packet_header(auth_packet_header, body_size, packet_num);
 
     // Make request buf
     int total_size = body_size + header_size;
