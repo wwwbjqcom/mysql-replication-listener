@@ -71,6 +71,7 @@ static int hash_sha1(boost::uint8_t *output, ...);
       throw std::runtime_error("Connect or authentication error");
   }
 
+
   /**
    * Get the master status if we don't know the name of the file.
    */
@@ -83,6 +84,7 @@ static int hash_sha1(boost::uint8_t *output, ...);
     m_binlog_file_name=binlog_filename;
     m_binlog_offset=offset;
   }
+
 
 
   /* We're ready to start the io service and request the binlog dump. */
@@ -857,8 +859,8 @@ int Binlog_tcp_driver::get_position(std::string *filename_ptr, unsigned long *po
 
 bool fetch_master_status(Binlog_socket *binlog_socket, std::string *filename, unsigned long *position)
 {
+  // Command body
   boost::asio::streambuf server_messages;
-
   std::ostream command_request_stream(&server_messages);
 
   boost::uint8_t val_command = COM_QUERY;
@@ -866,15 +868,23 @@ bool fetch_master_status(Binlog_socket *binlog_socket, std::string *filename, un
 
   command_request_stream << prot_command
           << "SHOW MASTER STATUS";
+  int body_size = server_messages.size();
 
-  int size=server_messages.size();
+  // Command header
+  int header_size = 4;
   char command_packet_header[4];
-  write_packet_header(command_packet_header, size, 0);
+  int packet_num = binlog_socket->is_ssl() ? 3 : 0;
+  write_packet_header(command_packet_header, body_size, packet_num);
+
+  // Make request buf
+  int total_size = body_size + header_size;
+  boost::asio::streambuf request_buf;
+  std::ostream request_stream(&request_buf);
+  request_stream.write(command_packet_header, header_size);
+  request_stream << &server_messages;
 
   // Send the request.
-  binlog_socket->write(boost::asio::buffer(command_packet_header, 4), boost::asio::transfer_at_least(4));
-  binlog_socket->write(server_messages, boost::asio::transfer_at_least(size));
-
+  binlog_socket->write(request_buf, boost::asio::transfer_at_least(total_size));
 
   Result_set result_set(binlog_socket);
 
