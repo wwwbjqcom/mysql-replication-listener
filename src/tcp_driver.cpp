@@ -113,7 +113,7 @@ static int hash_sha1(boost::uint8_t *output, ...);
 
   //TODO:
   if (!m_opt_ssl_ca.empty()) {
-    boost::asio::ssl::context ctx(boost::asio::ssl::context::sslv23);
+    boost::asio::ssl::context ctx(boost::asio::ssl::context::tlsv1);
     ctx.set_verify_mode(boost::asio::ssl::verify_peer);
     ctx.load_verify_file(m_opt_ssl_ca);
     binlog_socket = new Binlog_socket(io_service, ctx);
@@ -534,8 +534,10 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
 
     void start_ssl(Binlog_socket *binlog_socket, struct st_handshake_package &handshake_package)
 {
+
+  // SSL Body
   boost::asio::streambuf ssl_request;
-  std::ostream request_stream(&ssl_request);
+  std::ostream ssl_request_stream(&ssl_request);
 
   boost::uint8_t filler_buffer[23];
   memset((char *) filler_buffer, '\0', 23);
@@ -548,22 +550,26 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
   Protocol_chunk<boost::uint8_t>  prot_charset_number(val_charset_number);
   Protocol_chunk<boost::uint8_t>  prot_filler_buffer(filler_buffer, 23);
 
-  request_stream << prot_client_flags
-                 << prot_max_packet_size
-                 << prot_charset_number
-                 << prot_filler_buffer;
+  ssl_request_stream << prot_client_flags
+                     << prot_max_packet_size
+                     << prot_charset_number
+                     << prot_filler_buffer;
+  int body_size=ssl_request.size();
 
-  int size=ssl_request.size();
-  char ssl_packet_header[4];
-  write_packet_header(ssl_packet_header, size, 1);
+  // SSL Header
+  int header_size=4;
+  char ssl_packet_header[header_size];
+  write_packet_header(ssl_packet_header, body_size, 1);
 
-  // Send client flags (SSL enabled)
-  boost::asio::write(binlog_socket->m_socket,
-                     boost::asio::buffer(ssl_packet_header, 4),
-                     boost::asio::transfer_at_least(4));
-  boost::asio::write(binlog_socket->m_socket,
-                     ssl_request,
-                     boost::asio::transfer_at_least(size));
+  // Make request buf
+  int total_size = body_size + header_size;
+  boost::asio::streambuf request_buf;
+  std::ostream request_stream(&request_buf);
+  request_stream.write(ssl_packet_header, header_size);
+  request_stream << &ssl_request;
+
+  // Send request to switch SSL
+  boost::asio::write(binlog_socket->m_socket, request_buf, boost::asio::transfer_at_least(total_size));
 
   // handshake for SSL
   binlog_socket->m_ssl_socket->handshake(boost::asio::ssl::stream_base::client);
@@ -598,6 +604,8 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
       passwd_length= encrypt_password(reply, scramble_buff, passwd.c_str());
 
     boost::uint32_t val_client_flags = (boost::uint32_t)CLIENT_BASIC_FLAGS;
+    if (binlog_socket->is_ssl())
+      val_client_flags = (boost::uint32_t)CLIENT_SSL_FLAGS;
     Protocol_chunk<boost::uint32_t> prot_client_flags(val_client_flags);
     boost::uint32_t val_max_packet_size = MAX_PACKAGE_SIZE;
     Protocol_chunk<boost::uint32_t> prot_max_packet_size(val_max_packet_size);
