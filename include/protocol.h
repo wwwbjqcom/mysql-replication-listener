@@ -408,7 +408,7 @@ int proto_read_package_header(Binlog_socket *binlog_socket, unsigned long *packe
  * @retval 0 Success
  * @retval >0 An error occurred
  */
-int proto_read_package_header(Binlog_socket *binlog_socket, boost::asio::streambuf &buff, unsigned long *packet_length, unsigned char *packet_no, bool use_raw_socket);
+int proto_read_package_header(Binlog_socket *binlog_socket, boost::asio::streambuf &buff, unsigned long *packet_length, unsigned char *packet_no);
 
 /**
  * Get one complete packet from the server
@@ -420,8 +420,7 @@ int proto_read_package_header(Binlog_socket *binlog_socket, boost::asio::streamb
  * @return the size of the packet or 0 to indicate an error
  */
 
-int proto_get_one_package(Binlog_socket *binlog_socket, boost::asio::streambuf &buff,
-                          boost::uint8_t *packet_no, bool use_raw_socket);
+int proto_get_one_package(Binlog_socket *binlog_socket, boost::asio::streambuf &buff, boost::uint8_t *packet_no);
 
 void prot_parse_error_message(std::istream &is, struct st_error_package &err, int packet_length);
 void prot_parse_ok_message(std::istream &is, struct st_ok_package &ok, int packet_length);

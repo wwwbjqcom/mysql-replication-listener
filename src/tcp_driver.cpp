@@ -227,7 +227,7 @@ static int hash_sha1(boost::uint8_t *output, ...);
    */
   unsigned long packet_length;
   unsigned char packet_no;
-  if (proto_read_package_header(binlog_socket, server_messages, &packet_length, &packet_no, true))
+  if (proto_read_package_header(binlog_socket, server_messages, &packet_length, &packet_no))
   {
     throw std::runtime_error("Invalid package header");
   }
@@ -561,7 +561,7 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
      */
     unsigned long packet_length;
     unsigned char packet_no=1;
-    packet_length=proto_get_one_package(binlog_socket, auth_request, &packet_no, false);
+    packet_length=proto_get_one_package(binlog_socket, auth_request, &packet_no);
 
     std::istream auth_response_stream(&auth_request);
 
@@ -650,7 +650,7 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
   // Get Ok-package
   unsigned long packet_length;
   unsigned char packet_no;
-  packet_length=proto_get_one_package(binlog_socket, server_messages, &packet_no, false);
+  packet_length=proto_get_one_package(binlog_socket, server_messages, &packet_no);
 
   std::istream cmd_response_stream(&server_messages);
 

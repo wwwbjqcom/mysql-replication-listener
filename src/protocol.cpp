@@ -45,7 +45,7 @@ int proto_read_package_header(Binlog_socket *binlog_socket, unsigned long *packe
   return 0;
 }
 
-int proto_read_package_header(Binlog_socket *binlog_socket, boost::asio::streambuf &buff, unsigned long *packet_length, unsigned char *packet_no, bool use_raw_socket)
+int proto_read_package_header(Binlog_socket *binlog_socket, boost::asio::streambuf &buff, unsigned long *packet_length, unsigned char *packet_no)
 {
   std::streamsize inbuff= buff.in_avail();
   if( inbuff < 0)
@@ -54,10 +54,7 @@ int proto_read_package_header(Binlog_socket *binlog_socket, boost::asio::streamb
   if (4 > inbuff)
   {
     try {
-      if (use_raw_socket)
-        boost::asio::read(binlog_socket->m_socket, buff, boost::asio::transfer_at_least(4-inbuff));
-      else
-        binlog_socket->read(buff, boost::asio::transfer_at_least(4-inbuff));
+      binlog_socket->read(buff, boost::asio::transfer_at_least(4-inbuff));
     } catch (boost::system::system_error e)
     {
       return 1;
@@ -77,21 +74,16 @@ int proto_read_package_header(Binlog_socket *binlog_socket, boost::asio::streamb
 }
 
 
-int proto_get_one_package(Binlog_socket *binlog_socket, boost::asio::streambuf &buff,
-                          boost::uint8_t *packet_no, bool use_raw_socket)
+int proto_get_one_package(Binlog_socket *binlog_socket, boost::asio::streambuf &buff, boost::uint8_t *packet_no)
 {
   unsigned long packet_length;
-  if (proto_read_package_header(binlog_socket, buff, &packet_length, packet_no, use_raw_socket))
+  if (proto_read_package_header(binlog_socket, buff, &packet_length, packet_no))
     return 0;
   std::streamsize inbuffer= buff.in_avail();
   if (inbuffer < 0)
     inbuffer= 0;
   if (packet_length > inbuffer)
-    if (use_raw_socket)
-      boost::asio::read(binlog_socket->m_socket, buff, boost::asio::transfer_at_least(packet_length-inbuffer));
-    else
-      binlog_socket->read(buff, boost::asio::transfer_at_least(packet_length-inbuffer));
-
+    binlog_socket->read(buff, boost::asio::transfer_at_least(packet_length-inbuffer));
   return packet_length;
 }
 
