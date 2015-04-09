@@ -13,14 +13,14 @@ namespace system {
 class Binlog_socket {
 public:
   Binlog_socket(boost::asio::io_service& io_service)
-    : m_socket(io_service), ssl_flag(false), handshake_flag(false)
+    : m_socket(io_service), m_ssl_flag(false), m_handshake_flag(false)
   {
     m_ssl_socket = NULL;
     m_ssl_context = NULL;
   }
 
   Binlog_socket(boost::asio::io_service& io_service, boost::asio::ssl::context *ssl_context)
-    : m_socket(io_service), ssl_flag(true), handshake_flag(false)
+    : m_socket(io_service), m_ssl_flag(true), m_handshake_flag(false)
   {
     m_ssl_socket = new boost::asio::ssl::stream<boost::asio::ip::tcp::socket&>(m_socket, *ssl_context);
     m_ssl_context = ssl_context;
@@ -51,17 +51,17 @@ public:
 
   bool is_ssl()
   {
-    return ssl_flag;
+    return m_ssl_flag;
   }
 
   bool has_handshaken()
   {
-    return handshake_flag;
+    return m_handshake_flag;
   }
 
   bool should_use_ssl()
   {
-    return ssl_flag && handshake_flag;
+    return m_ssl_flag && m_handshake_flag;
   }
 
   void handshake()
@@ -69,7 +69,7 @@ public:
     if (is_ssl())
     {
       m_ssl_socket->handshake(boost::asio::ssl::stream_base::client);
-      handshake_flag = true;
+      m_handshake_flag = true;
     }
   }
 
@@ -177,8 +177,8 @@ public:
       boost::asio::write(m_socket, b, completion_condition);
   }
 
-  bool ssl_flag;
-  bool handshake_flag;
+  bool m_ssl_flag;
+  bool m_handshake_flag;
   boost::asio::ip::tcp::socket m_socket;
   boost::asio::ssl::stream<boost::asio::ip::tcp::socket&> *m_ssl_socket;
   boost::asio::ssl::context *m_ssl_context;
