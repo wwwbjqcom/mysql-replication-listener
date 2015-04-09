@@ -357,7 +357,7 @@ static int hash_sha1(boost::uint8_t *output, ...);
 
   // Header
   char packet_header[header_size];
-  write_packet_header(packet_header, body_size, 1);
+  write_packet_header(packet_header, body_size, packet_number);
 
   // Entire packet
   boost::asio::streambuf request_buf;
@@ -596,8 +596,9 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
 }
 
 
-    int authenticate(Binlog_socket *binlog_socket, const std::string& user, const std::string& passwd,
-                     const st_handshake_package &handshake_package)
+    int Binlog_tcp_driver::authenticate(Binlog_socket *binlog_socket, const std::string& user,
+                                        const std::string& passwd,
+                                        const st_handshake_package &handshake_package)
 {
   try
   {
@@ -644,23 +645,9 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
                         << prot_scamble_buffer
                         << database << '\0';
 
-    int body_size=auth_request.size();
-
-    // Auth header
-    int header_size = 4;
-    char auth_packet_header[header_size];
+    // Send auth request
     int packet_num = binlog_socket->is_ssl() ? 2 : 1;
-    write_packet_header(auth_packet_header, body_size, packet_num);
-
-    // Make request buf
-    int total_size = body_size + header_size;
-    boost::asio::streambuf request_buf;
-    std::ostream request_stream(&request_buf);
-    request_stream.write(auth_packet_header, header_size);
-    request_stream << &auth_request;
-
-    // Send request
-    binlog_socket->write(request_buf, boost::asio::transfer_at_least(total_size));
+    write_request(binlog_socket, auth_request, packet_num);
 
     /*
      * Get server authentication response
@@ -673,7 +660,6 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
 
     boost::uint8_t result_type;
     Protocol_chunk<boost::uint8_t> prot_result_type(result_type);
-
 
     auth_response_stream >> prot_result_type;
 
