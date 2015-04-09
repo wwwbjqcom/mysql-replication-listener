@@ -261,88 +261,8 @@ static int hash_sha1(boost::uint8_t *output, ...);
   /*
    * Register slave to master
    */
-  std::ostream command_request_stream(&server_messages);
-
-  boost::uint8_t val_command = COM_REGISTER_SLAVE;
-  Protocol_chunk<boost::uint8_t> prot_command(val_command);
-  boost::uint16_t val_port = port;
-  Protocol_chunk<boost::uint16_t> prot_connection_port(val_port);
-  boost::uint32_t val_rpl_recovery_rank = 0;
-  Protocol_chunk<boost::uint32_t> prot_rpl_recovery_rank(val_rpl_recovery_rank);
-  boost::uint32_t val_server_id = 1;
-  Protocol_chunk<boost::uint32_t> prot_server_id(val_server_id);
-
-  const char* env_libreplication_server_id = std::getenv("LIBREPLICATION_SERVER_ID");
-
-  if (env_libreplication_server_id != 0) {
-    try {
-      boost::uint32_t libreplication_server_id = boost::lexical_cast<boost::uint32_t>(env_libreplication_server_id);
-      prot_server_id = libreplication_server_id;
-    } catch (boost::bad_lexical_cast e) {
-      // XXX: nothing to do
-    }
-  }
-
-  boost::uint32_t val_master_server_id = 0;
-  Protocol_chunk<boost::uint32_t> prot_master_server_id(val_master_server_id);
-
-  boost::uint8_t val_report_host_strlen = host.size();
-  Protocol_chunk<boost::uint8_t> prot_report_host_strlen(val_report_host_strlen);
-  std::string report_user("mrl_user");
-  boost::uint8_t val_user_strlen = report_user.size();
-  Protocol_chunk<boost::uint8_t> prot_user_strlen(val_user_strlen);
-  std::string report_passwd("pw");
-  boost::uint8_t val_passwd_strlen = report_passwd.size();
-  Protocol_chunk<boost::uint8_t> prot_passwd_strlen(val_passwd_strlen);
-
-  command_request_stream << prot_command
-          << prot_server_id
-          << prot_report_host_strlen
-          << host
-          << prot_user_strlen
-          << report_user
-          << prot_passwd_strlen
-          << report_passwd
-          << prot_connection_port
-          << prot_rpl_recovery_rank
-          << prot_master_server_id;
-
-  int size=server_messages.size();
-  char command_packet_header[4];
-  try {
-    write_packet_header(command_packet_header, size, 0); // packet_no= 0
-
-    // Send the request.
-    binlog_socket->write(boost::asio::buffer(command_packet_header, 4), boost::asio::transfer_at_least(4));
-    binlog_socket->write(server_messages, boost::asio::transfer_at_least(size));
-  } catch( boost::system::error_code e)
-  {
-    throw std::runtime_error("Boost system error: " + e.message());
-  }
-
-
-  // Get Ok-package
-  packet_length=proto_get_one_package(binlog_socket, server_messages, &packet_no, false);
-
-  std::istream cmd_response_stream(&server_messages);
-
-  boost::uint8_t result_type;
-  Protocol_chunk<boost::uint8_t> prot_result_type(result_type);
-
-  cmd_response_stream >> prot_result_type;
-
-
-  if (result_type == 0)
-  {
-    struct st_ok_package ok_package;
-    prot_parse_ok_message(cmd_response_stream, ok_package, packet_length);
-  } else
-  {
-    struct st_error_package error_package;
-    prot_parse_error_message(cmd_response_stream, error_package, packet_length);
-    throw std::runtime_error("Error from server, code=" + boost::lexical_cast<std::string>(error_package.error_code) + ", message=\"" + error_package.message + "\"");
-  }
-
+  register_slave_to_master(binlog_socket, server_messages, host, port);
+    throw std::runtime_error("Slave to master registration failed.");
 
   return binlog_socket;
 }
@@ -681,7 +601,93 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
   }
 }
 
-int Binlog_tcp_driver::wait_for_next_event(mysql::Binary_log_event **event_ptr)
+    int Binlog_tcp_driver::register_slave_to_master(Binlog_socket *binlog_socket,
+                                                    boost::asio::streambuf &server_messages,
+                                                    const std::string& host, long port)
+{
+  std::ostream command_request_stream(&server_messages);
+
+  boost::uint8_t val_command = COM_REGISTER_SLAVE;
+  Protocol_chunk<boost::uint8_t> prot_command(val_command);
+  boost::uint16_t val_port = port;
+  Protocol_chunk<boost::uint16_t> prot_connection_port(val_port);
+  boost::uint32_t val_rpl_recovery_rank = 0;
+  Protocol_chunk<boost::uint32_t> prot_rpl_recovery_rank(val_rpl_recovery_rank);
+  boost::uint32_t val_server_id = 1;
+  Protocol_chunk<boost::uint32_t> prot_server_id(val_server_id);
+
+  const char* env_libreplication_server_id = std::getenv("LIBREPLICATION_SERVER_ID");
+
+  if (env_libreplication_server_id != 0) {
+    try {
+      boost::uint32_t libreplication_server_id = boost::lexical_cast<boost::uint32_t>(env_libreplication_server_id);
+      prot_server_id = libreplication_server_id;
+    } catch (boost::bad_lexical_cast e) {
+      // XXX: nothing to do
+    }
+  }
+
+  boost::uint32_t val_master_server_id = 0;
+  Protocol_chunk<boost::uint32_t> prot_master_server_id(val_master_server_id);
+
+  boost::uint8_t val_report_host_strlen = host.size();
+  Protocol_chunk<boost::uint8_t> prot_report_host_strlen(val_report_host_strlen);
+  std::string report_user("mrl_user");
+  boost::uint8_t val_user_strlen = report_user.size();
+  Protocol_chunk<boost::uint8_t> prot_user_strlen(val_user_strlen);
+  std::string report_passwd("pw");
+  boost::uint8_t val_passwd_strlen = report_passwd.size();
+  Protocol_chunk<boost::uint8_t> prot_passwd_strlen(val_passwd_strlen);
+
+  command_request_stream << prot_command
+          << prot_server_id
+          << prot_report_host_strlen
+          << host
+          << prot_user_strlen
+          << report_user
+          << prot_passwd_strlen
+          << report_passwd
+          << prot_connection_port
+          << prot_rpl_recovery_rank
+          << prot_master_server_id;
+
+  try {
+    // Send the request.
+    int packet_num = binlog_socket->is_ssl() ? 3 : 2;
+    write_request(binlog_socket, server_messages, packet_num);
+  } catch( boost::system::error_code e)
+  {
+    throw std::runtime_error("Boost system error: " + e.message());
+  }
+
+
+  // Get Ok-package
+  unsigned long packet_length;
+  unsigned char packet_no;
+  packet_length=proto_get_one_package(binlog_socket, server_messages, &packet_no, false);
+
+  std::istream cmd_response_stream(&server_messages);
+
+  boost::uint8_t result_type;
+  Protocol_chunk<boost::uint8_t> prot_result_type(result_type);
+
+  cmd_response_stream >> prot_result_type;
+
+
+  if (result_type == 0)
+  {
+    struct st_ok_package ok_package;
+    prot_parse_ok_message(cmd_response_stream, ok_package, packet_length);
+  } else
+  {
+    struct st_error_package error_package;
+    prot_parse_error_message(cmd_response_stream, error_package, packet_length);
+    throw std::runtime_error("Error from server, code=" + boost::lexical_cast<std::string>(error_package.error_code) + ", message=\"" + error_package.message + "\"");
+  }
+  return 0;
+}
+
+    int Binlog_tcp_driver::wait_for_next_event(mysql::Binary_log_event **event_ptr)
 {
   // poll for new event until one event is found.
   // return the event

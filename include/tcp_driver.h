@@ -114,6 +114,13 @@ private:
                      const std::string& passwd,
                      const st_handshake_package &handshake_package);
 
+    /*
+     * Register slave to master
+     */
+    int register_slave_to_master(Binlog_socket *binlog_socket,
+                                 boost::asio::streambuf &server_messages,
+                                 const std::string& host, long port);
+
     /**
      * Write a request with header packet
      * @param binlog_socket
