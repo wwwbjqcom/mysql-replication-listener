@@ -100,12 +100,9 @@ public:
   }
 
 
-
-
   /*
    * read methods (forward to read.hpp)
    */
-
 
   template <typename MutableBufferSequence, typename CompletionCondition>
   std::size_t read(const MutableBufferSequence& buffers, CompletionCondition completion_condition)
@@ -204,6 +201,7 @@ public:
     else
       boost::asio::write(m_socket, b, completion_condition);
   }
+
 
   bool m_ssl_flag;
   bool m_handshake_flag;

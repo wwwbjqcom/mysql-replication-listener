@@ -111,7 +111,6 @@ static int hash_sha1(boost::uint8_t *output, ...);
 
   Binlog_socket *binlog_socket;
 
-  //TODO:
   if (!m_opt_ssl_ca.empty()) {
     boost::asio::ssl::context *ctx = new boost::asio::ssl::context(boost::asio::ssl::context::tlsv1);
     ctx->set_verify_mode(boost::asio::ssl::verify_peer);
@@ -121,8 +120,7 @@ static int hash_sha1(boost::uint8_t *output, ...);
     binlog_socket = new Binlog_socket(io_service);
   }
 
-  // raw socket
-  tcp::socket* socket = binlog_socket->socket();
+  tcp::socket* socket = binlog_socket->socket(); // raw socket
 
   /*
     Try each endpoint until we successfully establish a connection.
@@ -501,7 +499,7 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
   // Send ssl request
   write_request(binlog_socket, ssl_request, binlog_socket->get_and_increment_packet_number());
 
-  // handshake for SSL
+  // Handshake for SSL
   binlog_socket->handshake();
 }
 
@@ -641,7 +639,7 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
           << prot_master_server_id;
 
   try {
-    // Send the request.
+    // Send request.
     write_request(binlog_socket, server_messages, binlog_socket->reset_and_increment_packet_number());
   } catch( boost::system::error_code e)
   {
