@@ -202,6 +202,7 @@ public:
       boost::asio::write(m_socket, b, completion_condition);
   }
 
+private:
 
   bool m_ssl_flag;
   bool m_handshake_flag;
