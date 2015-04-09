@@ -71,7 +71,6 @@ static int hash_sha1(boost::uint8_t *output, ...);
       throw std::runtime_error("Connect or authentication error");
   }
 
-
   /**
    * Get the master status if we don't know the name of the file.
    */
@@ -84,7 +83,6 @@ static int hash_sha1(boost::uint8_t *output, ...);
     m_binlog_file_name=binlog_filename;
     m_binlog_offset=offset;
   }
-
 
 
   /* We're ready to start the io service and request the binlog dump. */
@@ -115,9 +113,9 @@ static int hash_sha1(boost::uint8_t *output, ...);
 
   //TODO:
   if (!m_opt_ssl_ca.empty()) {
-    boost::asio::ssl::context ctx(boost::asio::ssl::context::tlsv1);
-    ctx.set_verify_mode(boost::asio::ssl::verify_peer);
-    ctx.load_verify_file(m_opt_ssl_ca);
+    boost::asio::ssl::context *ctx = new boost::asio::ssl::context(boost::asio::ssl::context::tlsv1);
+    ctx->set_verify_mode(boost::asio::ssl::verify_peer);
+    ctx->load_verify_file(m_opt_ssl_ca);
     binlog_socket = new Binlog_socket(io_service, ctx);
   } else {
     binlog_socket = new Binlog_socket(io_service);
@@ -257,9 +255,9 @@ static int hash_sha1(boost::uint8_t *output, ...);
   if (binlog_socket->is_ssl())
     start_ssl(binlog_socket, handshake_package);
 
-
   if (authenticate(binlog_socket, user, passwd, handshake_package))
     throw std::runtime_error("Authentication failed.");
+
 
   /*
    * Register slave to master
@@ -316,15 +314,13 @@ static int hash_sha1(boost::uint8_t *output, ...);
     write_packet_header(command_packet_header, size, 0); // packet_no= 0
 
     // Send the request.
-    boost::asio::write(*socket,
-                       boost::asio::buffer(command_packet_header, 4),
-                       boost::asio::transfer_at_least(4));
-    boost::asio::write(*socket, server_messages,
-                       boost::asio::transfer_at_least(size));
+    binlog_socket->write(boost::asio::buffer(command_packet_header, 4), boost::asio::transfer_at_least(4));
+    binlog_socket->write(server_messages, boost::asio::transfer_at_least(size));
   } catch( boost::system::error_code e)
   {
     throw std::runtime_error("Boost system error: " + e.message());
   }
+
 
   // Get Ok-package
   packet_length=proto_get_one_package(binlog_socket, server_messages, &packet_no, false);
@@ -336,6 +332,7 @@ static int hash_sha1(boost::uint8_t *output, ...);
 
   cmd_response_stream >> prot_result_type;
 
+
   if (result_type == 0)
   {
     struct st_ok_package ok_package;
@@ -346,6 +343,7 @@ static int hash_sha1(boost::uint8_t *output, ...);
     prot_parse_error_message(cmd_response_stream, error_package, packet_length);
     throw std::runtime_error("Error from server, code=" + boost::lexical_cast<std::string>(error_package.error_code) + ", message=\"" + error_package.message + "\"");
   }
+
 
   return binlog_socket;
 }

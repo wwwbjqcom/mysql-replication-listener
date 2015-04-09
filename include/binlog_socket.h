@@ -16,20 +16,22 @@ public:
     : m_socket(io_service), ssl_flag(false)
   {
     m_ssl_socket = NULL;
+    m_ssl_context = NULL;
   }
 
-  Binlog_socket(boost::asio::io_service& io_service, boost::asio::ssl::context &ssl_context)
+  Binlog_socket(boost::asio::io_service& io_service, boost::asio::ssl::context *ssl_context)
     : m_socket(io_service), ssl_flag(true)
   {
-    m_ssl_socket = new boost::asio::ssl::stream<boost::asio::ip::tcp::socket&>(m_socket, ssl_context);
+    m_ssl_socket = new boost::asio::ssl::stream<boost::asio::ip::tcp::socket&>(m_socket, *ssl_context);
+    m_ssl_context = ssl_context;
   }
 
   ~Binlog_socket()
   {
     if (m_ssl_socket)
-    {
       delete m_ssl_socket;
-    }
+    if (m_ssl_context)
+      delete m_ssl_context;
   }
 
   boost::asio::ip::tcp::socket* socket()
@@ -159,6 +161,7 @@ public:
   bool ssl_flag;
   boost::asio::ip::tcp::socket m_socket;
   boost::asio::ssl::stream<boost::asio::ip::tcp::socket&> *m_ssl_socket;
+  boost::asio::ssl::context *m_ssl_context;
 };
 
 } // end namespace system
