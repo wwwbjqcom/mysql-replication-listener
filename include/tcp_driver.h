@@ -102,6 +102,38 @@ protected:
                 const std::string& binlog_filename="", size_t offset=4);
 
 private:
+    /*
+     * Start ssl handshaking with mysql server
+     */
+    void start_ssl(Binlog_socket *binlog_socket, struct st_handshake_package &handshake_package);
+
+    /**
+     * Write a request with header packet
+     * @param binlog_socket
+     * @param request_body_buf buffer content for sending to mysql-server
+     * @param packet_number Packet number in header data.
+     */
+    std::size_t write_request(Binlog_socket *binlog_socket,
+                             boost::asio::streambuf &request_body_buf,
+                             int packet_number);
+
+    /**
+     * Write a request with header packet
+     * member's binlog_socket will be used.
+     * @param request_body_buf buffer content for sending to mysql-server
+     * @param packet_number Packet number in header data.
+     */
+    std::size_t write_request(boost::asio::streambuf &request_body_buf,
+                             int packet_number);
+
+    /**
+     * Write a request with header packet
+     * member's binlog_socket will be used.
+     * packet number will be set automatically
+     * @param request_body_buf buffer content for sending to mysql-server
+     */
+    std::size_t write_request(boost::asio::streambuf &request_body_buf);
+
 
     /**
      * Request a binlog dump and starts the event loop in a new thread
@@ -169,6 +201,10 @@ private:
     void shutdown(void);
 
 
+    /**
+     * Connect mysql server and authenticate.
+     * This process includes SSL handshaking.
+     */
     Binlog_socket* sync_connect_and_authenticate(boost::asio::io_service &io_service,
                                                  const std::string &user,
                                                  const std::string &passwd,
@@ -263,9 +299,6 @@ bool fetch_master_status(Binlog_socket *binlog_socket, std::string *filename, un
  */
 bool fetch_binlogs_name_and_size(Binlog_socket *binlog_socket, std::map<std::string, unsigned long> &binlog_map);
 
-
-void start_ssl(Binlog_socket *binlog_socket,
-                                  struct st_handshake_package &handshake_package);
 
 int authenticate(Binlog_socket *socket, const std::string& user,
                  const std::string& passwd,

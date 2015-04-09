@@ -255,9 +255,11 @@ static int hash_sha1(boost::uint8_t *output, ...);
   if (binlog_socket->is_ssl())
     start_ssl(binlog_socket, handshake_package);
 
+  /*
+   * Authenticate
+   */
   if (authenticate(binlog_socket, user, passwd, handshake_package))
     throw std::runtime_error("Authentication failed.");
-
 
   /*
    * Register slave to master
@@ -346,6 +348,40 @@ static int hash_sha1(boost::uint8_t *output, ...);
 
 
   return binlog_socket;
+}
+
+    std::size_t Binlog_tcp_driver::write_request(Binlog_socket *binlog_socket,
+                                                 boost::asio::streambuf &request_body_buf,
+                                                 int packet_number)
+{
+  int body_size = request_body_buf.size();
+  int header_size = 4;
+  int total_size = body_size + header_size;
+
+  // Header
+  char packet_header[header_size];
+  write_packet_header(packet_header, body_size, 1);
+
+  // Entire packet
+  boost::asio::streambuf request_buf;
+  std::ostream request_stream(&request_buf);
+  request_stream.write(packet_header, header_size);
+  request_stream << &request_body_buf;
+
+  // Send data to server
+  return binlog_socket->write(request_buf, boost::asio::transfer_at_least(total_size));
+}
+
+    std::size_t Binlog_tcp_driver::write_request(boost::asio::streambuf &request_body_buf,
+                                                 int packet_number)
+{
+  return write_request(m_socket, request_body_buf, packet_number);
+}
+
+    std::size_t Binlog_tcp_driver::write_request(boost::asio::streambuf &request_body_buf)
+{
+  //TODO: Increment and set packet number
+  return write_request(request_body_buf, 0);
 }
 
     void Binlog_tcp_driver::start_binlog_dump(const std::string &binlog_file_name, size_t offset)
@@ -532,7 +568,7 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
                                       boost::asio::placeholders::bytes_transferred));
 }
 
-    void start_ssl(Binlog_socket *binlog_socket, struct st_handshake_package &handshake_package)
+    void Binlog_tcp_driver::start_ssl(Binlog_socket *binlog_socket, struct st_handshake_package &handshake_package)
 {
 
   // SSL Body
@@ -554,22 +590,9 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
                      << prot_max_packet_size
                      << prot_charset_number
                      << prot_filler_buffer;
-  int body_size=ssl_request.size();
 
-  // SSL Header
-  int header_size=4;
-  char ssl_packet_header[header_size];
-  write_packet_header(ssl_packet_header, body_size, 1);
-
-  // Make request buf
-  int total_size = body_size + header_size;
-  boost::asio::streambuf request_buf;
-  std::ostream request_stream(&request_buf);
-  request_stream.write(ssl_packet_header, header_size);
-  request_stream << &ssl_request;
-
-  // Send request to switch SSL
-  binlog_socket->write(request_buf, boost::asio::transfer_at_least(total_size));
+  // Send ssl request
+  write_request(binlog_socket, ssl_request, 1);
 
   // handshake for SSL
   binlog_socket->handshake();
