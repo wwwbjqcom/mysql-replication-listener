@@ -128,9 +128,17 @@ private:
      * @param packet_number Packet number in header data.
      */
     std::size_t write_request(Binlog_socket *binlog_socket,
-                             boost::asio::streambuf &request_body_buf,
-                             int packet_number);
+                              boost::asio::streambuf &request_body_buf,
+                              std::size_t packet_number);
 
+    /**
+     * Write a request with header packet
+     * packet number will be set automatically
+     * @param binlog_socket
+     * @param request_body_buf buffer content for sending to mysql-server
+     */
+    std::size_t write_request(Binlog_socket *binlog_socket,
+                              boost::asio::streambuf &request_body_buf);
     /**
      * Write a request with header packet
      * member's binlog_socket will be used.
@@ -138,7 +146,7 @@ private:
      * @param packet_number Packet number in header data.
      */
     std::size_t write_request(boost::asio::streambuf &request_body_buf,
-                             int packet_number);
+                              std::size_t packet_number);
 
     /**
      * Write a request with header packet

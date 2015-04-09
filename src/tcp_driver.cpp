@@ -274,7 +274,7 @@ static int hash_sha1(boost::uint8_t *output, ...);
 
     std::size_t Binlog_tcp_driver::write_request(Binlog_socket *binlog_socket,
                                                  boost::asio::streambuf &request_body_buf,
-                                                 int packet_number)
+                                                 std::size_t packet_number)
 {
   int body_size = request_body_buf.size();
   int header_size = 4;
@@ -294,15 +294,21 @@ static int hash_sha1(boost::uint8_t *output, ...);
   return binlog_socket->write(request_buf, boost::asio::transfer_at_least(total_size));
 }
 
+    std::size_t Binlog_tcp_driver::write_request(Binlog_socket *binlog_socket,
+                                                 boost::asio::streambuf &request_body_buf)
+{
+  return write_request(binlog_socket, request_body_buf, binlog_socket->get_and_increment_packet_number());
+}
+
     std::size_t Binlog_tcp_driver::write_request(boost::asio::streambuf &request_body_buf,
-                                                 int packet_number)
+                                                 std::size_t packet_number)
 {
   return write_request(m_socket, request_body_buf, packet_number);
 }
 
     std::size_t Binlog_tcp_driver::write_request(boost::asio::streambuf &request_body_buf)
 {
-  return write_request(request_body_buf, 0);
+  return write_request(m_socket, request_body_buf);
 }
 
     void Binlog_tcp_driver::start_binlog_dump(const std::string &binlog_file_name, size_t offset)
