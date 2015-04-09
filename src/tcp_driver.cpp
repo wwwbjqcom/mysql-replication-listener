@@ -572,7 +572,7 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
   boost::asio::write(binlog_socket->m_socket, request_buf, boost::asio::transfer_at_least(total_size));
 
   // handshake for SSL
-  binlog_socket->m_ssl_socket->handshake(boost::asio::ssl::stream_base::client);
+  binlog_socket->handshake();
 }
 
 
