@@ -61,12 +61,12 @@ public:
 
   bool should_use_ssl()
   {
-    is_ssl() && has_handshaken();
+    return ssl_flag && handshake_flag;
   }
 
   void handshake()
   {
-    if (ssl_flag)
+    if (is_ssl())
     {
       m_ssl_socket->handshake(boost::asio::ssl::stream_base::client);
       handshake_flag = true;
@@ -82,7 +82,7 @@ public:
   template <typename MutableBufferSequence, typename CompletionCondition>
   std::size_t read(const MutableBufferSequence& buffers, CompletionCondition completion_condition)
   {
-    if (ssl_flag)
+    if (should_use_ssl())
       boost::asio::read(*m_ssl_socket, buffers, completion_condition);
     else
       boost::asio::read(m_socket, buffers, completion_condition);
@@ -91,7 +91,7 @@ public:
   template <typename Allocator, typename CompletionCondition>
   std::size_t read(boost::asio::basic_streambuf<Allocator>& b, CompletionCondition completion_condition)
   {
-    if (ssl_flag)
+    if (should_use_ssl())
       boost::asio::read(*m_ssl_socket, b, completion_condition);
     else
       boost::asio::read(m_socket, b, completion_condition);
@@ -102,7 +102,7 @@ public:
   void (boost::system::error_code, std::size_t))
   async_read(const MutableBufferSequence& buffers, BOOST_ASIO_MOVE_ARG(ReadHandler) handler)
   {
-    if (ssl_flag)
+    if (should_use_ssl())
       boost::asio::async_read(*m_ssl_socket, buffers, handler);
     else
       boost::asio::async_read(m_socket, buffers, handler);
@@ -112,7 +112,7 @@ public:
   BOOST_ASIO_INITFN_RESULT_TYPE(ReadHandler, void (boost::system::error_code, std::size_t))
   async_read(boost::asio::basic_streambuf<Allocator>& b, BOOST_ASIO_MOVE_ARG(ReadHandler) handler)
   {
-    if (ssl_flag)
+    if (should_use_ssl())
       boost::asio::async_read(*m_ssl_socket, b, handler);
     else
       boost::asio::async_read(m_socket, b, handler);
@@ -126,7 +126,7 @@ public:
   template <typename ConstBufferSequence>
   std::size_t write(const ConstBufferSequence& buffers)
   {
-    if (ssl_flag)
+    if (should_use_ssl())
       boost::asio::write(*m_ssl_socket, buffers);
     else
       boost::asio::write(m_socket, buffers);
@@ -135,7 +135,7 @@ public:
   template <typename ConstBufferSequence>
   std::size_t write(const ConstBufferSequence& buffers, boost::system::error_code& ec)
   {
-    if (ssl_flag)
+    if (should_use_ssl())
       boost::asio::write(*m_ssl_socket, buffers, ec);
     else
       boost::asio::write(m_socket, buffers, ec);
@@ -144,7 +144,7 @@ public:
   template <typename ConstBufferSequence, typename CompletionCondition>
   std::size_t write(const ConstBufferSequence& buffers, CompletionCondition completion_condition)
   {
-    if (ssl_flag)
+    if (should_use_ssl())
       boost::asio::write(*m_ssl_socket, buffers, completion_condition);
     else
       boost::asio::write(m_socket, buffers, completion_condition);
@@ -153,7 +153,7 @@ public:
   template <typename Allocator>
   std::size_t write(boost::asio::basic_streambuf<Allocator>& b)
   {
-    if (ssl_flag)
+    if (should_use_ssl())
       boost::asio::write(*m_ssl_socket, b);
     else
       boost::asio::write(m_socket, b);
@@ -162,7 +162,7 @@ public:
   template <typename Allocator>
   std::size_t write(boost::asio::basic_streambuf<Allocator>& b, boost::system::error_code& ec)
   {
-    if (ssl_flag)
+    if (should_use_ssl())
       boost::asio::write(*m_ssl_socket, b, ec);
     else
       boost::asio::write(m_socket, b, ec);
@@ -171,7 +171,7 @@ public:
   template <typename Allocator, typename CompletionCondition>
   std::size_t write(boost::asio::basic_streambuf<Allocator>& b, CompletionCondition completion_condition)
   {
-    if (ssl_flag)
+    if (should_use_ssl())
       boost::asio::write(*m_ssl_socket, b, completion_condition);
     else
       boost::asio::write(m_socket, b, completion_condition);

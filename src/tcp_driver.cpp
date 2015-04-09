@@ -569,7 +569,7 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
   request_stream << &ssl_request;
 
   // Send request to switch SSL
-  boost::asio::write(binlog_socket->m_socket, request_buf, boost::asio::transfer_at_least(total_size));
+  binlog_socket->write(request_buf, boost::asio::transfer_at_least(total_size));
 
   // handshake for SSL
   binlog_socket->handshake();
