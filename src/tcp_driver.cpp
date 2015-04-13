@@ -311,6 +311,17 @@ static int hash_sha1(boost::uint8_t *output, ...);
   boost::uint32_t val_server_id = 1;
   Protocol_chunk<boost::uint32_t> prot_server_id(val_server_id); // must not be 0; see handshake package
 
+  const char* env_libreplication_server_id = std::getenv("LIBREPLICATION_SERVER_ID");
+
+  if (env_libreplication_server_id != 0) {
+    try {
+      boost::uint32_t libreplication_server_id = boost::lexical_cast<boost::uint32_t>(env_libreplication_server_id);
+      prot_server_id = libreplication_server_id;
+    } catch (boost::bad_lexical_cast e) {
+      // XXX: nothing to do
+    }
+  }
+
   command_request_stream
           << prot_command
           << prot_binlog_offset
