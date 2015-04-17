@@ -112,8 +112,9 @@ static int hash_sha1(boost::uint8_t *output, ...);
   Binlog_socket *binlog_socket;
 
   if (!m_opt_ssl_ca.empty()) {
-    boost::asio::ssl::context *ctx = new boost::asio::ssl::context(boost::asio::ssl::context::tlsv1);
-    ctx->set_verify_mode(boost::asio::ssl::verify_peer);
+    boost::asio::ssl::context *ctx = new boost::asio::ssl::context(io_service, boost::asio::ssl::context::tlsv1);
+    ctx->set_verify_mode(boost::asio::ssl::context::verify_peer);
+
     ctx->load_verify_file(m_opt_ssl_ca);
     binlog_socket = new Binlog_socket(io_service, ctx);
   } else {
