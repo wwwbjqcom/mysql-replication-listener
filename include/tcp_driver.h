@@ -25,12 +25,13 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 #include "protocol.h"
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
+#include "binlog_socket.h"
 
 
 #define MAX_PACKAGE_SIZE 0xffffff
 
 #define GET_NEXT_PACKET_HEADER   \
-   boost::asio::async_read(*m_socket, boost::asio::buffer(m_net_header, 4), \
+   m_socket->async_read(boost::asio::buffer(m_net_header, 4), \
      boost::bind(&Binlog_tcp_driver::handle_net_packet_header, this, \
      boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)) \
 
@@ -73,6 +74,8 @@ public:
     int set_position(const std::string &str, unsigned long position);
 
     int get_position(std::string *str, unsigned long *position);
+
+    int set_ssl_ca(const std::string& filepath);
 
     const std::string& user() const { return m_user; }
     const std::string& password() const { return m_passwd; }
@@ -165,9 +168,21 @@ private:
      */
     void shutdown(void);
 
+
+    /**
+     * Connect mysql server and authenticate.
+     * This process includes SSL handshaking.
+     */
+    Binlog_socket* sync_connect_and_authenticate(boost::asio::io_service &io_service,
+                                                 const std::string &user,
+                                                 const std::string &passwd,
+                                                 const std::string &host,
+                                                 long port);
+
+
     boost::thread *m_event_loop;
     boost::asio::io_service m_io_service;
-    tcp::socket *m_socket;
+    Binlog_socket *m_socket;
     bool m_shutdown;
 
     /**
@@ -225,7 +240,57 @@ private:
     boost::uint64_t m_total_bytes_transferred;
 
 
+    /*
+     * SSL configuration
+     */
+    //bool m_opt_use_ssl;
+    std::string m_opt_ssl_ca;
+    //std::string m_opt_ssl_capath;
+    //std::string m_opt_ssl_cert;
+    //std::string m_opt_ssl_cipher;
+    //std::string m_opt_ssl_key;
+    //std::string m_opt_ssl_crl;
+    //std::string m_opt_ssl_crlpath;
+    //bool m_opt_ssl_verify_server_cert;
 };
+
+/*
+ * Start ssl handshaking with mysql server
+ */
+void start_ssl(Binlog_socket *binlog_socket, struct st_handshake_package &handshake_package);
+
+/*
+ * Send authenticate request and handle the response
+ */
+int authenticate(Binlog_socket *socket, const std::string& user,
+    const std::string& passwd,
+    const st_handshake_package &handshake_package);
+
+/*
+ * Register slave to master
+ */
+int register_slave_to_master(Binlog_socket *binlog_socket,
+    boost::asio::streambuf &server_messages,
+    const std::string& host, long port);
+
+/**
+ * Write a request with header packet
+ * @param binlog_socket
+ * @param request_body_buf buffer content for sending to mysql-server
+ * @param packet_number Packet number in header data.
+ */
+std::size_t write_request(Binlog_socket *binlog_socket,
+    boost::asio::streambuf &request_body_buf,
+    std::size_t packet_number);
+
+/**
+ * Write a request with header packet
+ * packet number will be set automatically
+ * @param binlog_socket
+ * @param request_body_buf buffer content for sending to mysql-server
+ */
+std::size_t write_request(Binlog_socket *binlog_socket,
+    boost::asio::streambuf &request_body_buf);
 
 /**
  * Sends a SHOW MASTER STATUS command to the server and retrieve the
@@ -233,22 +298,12 @@ private:
  *
  * @return False if the operation succeeded, true if it failed.
  */
-bool fetch_master_status(tcp::socket *socket, std::string *filename, unsigned long *position);
+bool fetch_master_status(Binlog_socket *binlog_socket, std::string *filename, unsigned long *position);
 /**
  * Sends a SHOW BINARY LOGS command to the server and stores the file
  * names and sizes in a map.
  */
-bool fetch_binlogs_name_and_size(tcp::socket *socket, std::map<std::string, unsigned long> &binlog_map);
-
-int authenticate(tcp::socket *socket, const std::string& user,
-                 const std::string& passwd,
-                 const st_handshake_package &handshake_package);
-
-tcp::socket *
-sync_connect_and_authenticate(boost::asio::io_service &io_service, const std::string &user,
-                              const std::string &passwd, const std::string &host, long port);
-
+bool fetch_binlogs_name_and_size(Binlog_socket *binlog_socket, std::map<std::string, unsigned long> &binlog_map);
 
 } }
-
 #endif	/* _TCP_DRIVER_H */

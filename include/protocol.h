@@ -23,6 +23,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 #include <boost/asio.hpp>
 #include <list>
 #include "binlog_event.h"
+#include "binlog_socket.h"
 
 using boost::asio::ip::tcp;
 namespace mysql {
@@ -127,6 +128,9 @@ struct st_error_package
 #define CLIENT_BASIC_FLAGS (((CLIENT_ALL_FLAGS & ~CLIENT_SSL) \
                                                & ~CLIENT_COMPRESS) \
                                                & ~CLIENT_SSL_VERIFY_SERVER_CERT)
+#define CLIENT_SSL_FLAGS ((CLIENT_ALL_FLAGS & ~CLIENT_COMPRESS) \
+                                            & ~CLIENT_SSL_VERIFY_SERVER_CERT)
+
 enum enum_server_command
 {
   COM_SLEEP, COM_QUIT, COM_INIT_DB, COM_QUERY, COM_FIELD_LIST,
@@ -395,7 +399,8 @@ std::istream &operator>>(std::istream &is, std::string &str);
 std::istream &operator>>(std::istream &is, Protocol_chunk_string_len &lenstr);
 std::istream &operator>>(std::istream &is, Protocol_chunk_string &str);
 
-int proto_read_package_header(tcp::socket *socket, unsigned long *packet_length, unsigned char *packet_no);
+
+int proto_read_package_header(Binlog_socket *binlog_socket, unsigned long *packet_length, unsigned char *packet_no);
 
 /**
  * Read a server package header from a stream buffer
@@ -403,7 +408,7 @@ int proto_read_package_header(tcp::socket *socket, unsigned long *packet_length,
  * @retval 0 Success
  * @retval >0 An error occurred
  */
-int proto_read_package_header(tcp::socket *socket, boost::asio::streambuf &buff, unsigned long *packet_length, unsigned char *packet_no);
+int proto_read_package_header(Binlog_socket *binlog_socket, boost::asio::streambuf &buff, unsigned long *packet_length, unsigned char *packet_no);
 
 /**
  * Get one complete packet from the server
@@ -414,7 +419,9 @@ int proto_read_package_header(tcp::socket *socket, boost::asio::streambuf &buff,
  *
  * @return the size of the packet or 0 to indicate an error
  */
-int proto_get_one_package(tcp::socket *socket, boost::asio::streambuf &buff, boost::uint8_t *packet_no);
+
+int proto_get_one_package(Binlog_socket *binlog_socket, boost::asio::streambuf &buff, boost::uint8_t *packet_no);
+
 void prot_parse_error_message(std::istream &is, struct st_error_package &err, int packet_length);
 void prot_parse_ok_message(std::istream &is, struct st_ok_package &ok, int packet_length);
 void prot_parse_eof_message(std::istream &is, struct st_eof_package &eof);

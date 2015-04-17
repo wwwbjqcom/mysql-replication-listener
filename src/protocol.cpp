@@ -28,13 +28,12 @@ using namespace mysql::system;
 
 namespace mysql { namespace system {
 
-int proto_read_package_header(tcp::socket *socket, unsigned long *packet_length, unsigned char *packet_no)
+int proto_read_package_header(Binlog_socket *binlog_socket, unsigned long *packet_length, unsigned char *packet_no)
 {
   unsigned char buf[4];
 
   try {
-    boost::asio::read(*socket, boost::asio::buffer(buf, 4),
-                      boost::asio::transfer_at_least(4));
+    binlog_socket->read(boost::asio::buffer(buf, 4), boost::asio::transfer_at_least(4));
   } catch (boost::system::system_error e)
   {
     return 1;
@@ -46,7 +45,7 @@ int proto_read_package_header(tcp::socket *socket, unsigned long *packet_length,
   return 0;
 }
 
-int proto_read_package_header(tcp::socket *socket, boost::asio::streambuf &buff, unsigned long *packet_length, unsigned char *packet_no)
+int proto_read_package_header(Binlog_socket *binlog_socket, boost::asio::streambuf &buff, unsigned long *packet_length, unsigned char *packet_no)
 {
   std::streamsize inbuff= buff.in_avail();
   if( inbuff < 0)
@@ -55,8 +54,7 @@ int proto_read_package_header(tcp::socket *socket, boost::asio::streambuf &buff,
   if (4 > inbuff)
   {
     try {
-      boost::asio::read(*socket, buff,
-                        boost::asio::transfer_at_least(4-inbuff));
+      binlog_socket->read(buff, boost::asio::transfer_at_least(4-inbuff));
     } catch (boost::system::system_error e)
     {
       return 1;
@@ -76,21 +74,19 @@ int proto_read_package_header(tcp::socket *socket, boost::asio::streambuf &buff,
 }
 
 
-int proto_get_one_package(tcp::socket *socket, boost::asio::streambuf &buff,
-                          boost::uint8_t *packet_no)
+int proto_get_one_package(Binlog_socket *binlog_socket, boost::asio::streambuf &buff, boost::uint8_t *packet_no)
 {
   unsigned long packet_length;
-  if (proto_read_package_header(socket, buff, &packet_length, packet_no))
+  if (proto_read_package_header(binlog_socket, buff, &packet_length, packet_no))
     return 0;
   std::streamsize inbuffer= buff.in_avail();
   if (inbuffer < 0)
     inbuffer= 0;
   if (packet_length > inbuffer)
-    boost::asio::read(*socket, buff,
-                      boost::asio::transfer_at_least(packet_length-inbuffer));
-
+    binlog_socket->read(buff, boost::asio::transfer_at_least(packet_length-inbuffer));
   return packet_length;
 }
+
 
 void prot_parse_error_message(std::istream &is, struct st_error_package &err,
                               int packet_length)

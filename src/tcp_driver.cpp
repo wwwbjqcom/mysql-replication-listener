@@ -34,11 +34,14 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <boost/lexical_cast.hpp>
+#include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
 
 #include "protocol.h"
 #include "binlog_event.h"
 #include "rowset.h"
 #include "field_iterator.h"
+#include "binlog_socket.h"
 
 using boost::asio::ip::tcp;
 using namespace mysql::system;
@@ -88,7 +91,14 @@ static int hash_sha1(boost::uint8_t *output, ...);
   return 0;
 }
 
-tcp::socket *sync_connect_and_authenticate(boost::asio::io_service &io_service, const std::string &user, const std::string &passwd, const std::string &host, long port)
+
+
+  Binlog_socket* Binlog_tcp_driver::sync_connect_and_authenticate(
+    boost::asio::io_service &io_service,
+    const std::string &user,
+    const std::string &passwd,
+    const std::string &host,
+    long port)
 {
 
   tcp::resolver resolver(io_service);
@@ -99,7 +109,19 @@ tcp::socket *sync_connect_and_authenticate(boost::asio::io_service &io_service, 
   if (port == 0)
     port= 3306;
 
-  tcp::socket *socket=new tcp::socket(io_service);
+  Binlog_socket *binlog_socket;
+
+  if (!m_opt_ssl_ca.empty()) {
+    boost::asio::ssl::context *ctx = new boost::asio::ssl::context(boost::asio::ssl::context::tlsv1);
+    ctx->set_verify_mode(boost::asio::ssl::verify_peer);
+    ctx->load_verify_file(m_opt_ssl_ca);
+    binlog_socket = new Binlog_socket(io_service, ctx);
+  } else {
+    binlog_socket = new Binlog_socket(io_service);
+  }
+
+  tcp::socket* socket = binlog_socket->socket(); // raw socket
+
   /*
     Try each endpoint until we successfully establish a connection.
    */
@@ -205,7 +227,7 @@ tcp::socket *sync_connect_and_authenticate(boost::asio::io_service &io_service, 
    */
   unsigned long packet_length;
   unsigned char packet_no;
-  if (proto_read_package_header(socket, server_messages, &packet_length, &packet_no))
+  if (proto_read_package_header(binlog_socket, server_messages, &packet_length, &packet_no))
   {
     throw std::runtime_error("Invalid package header");
   }
@@ -216,109 +238,68 @@ tcp::socket *sync_connect_and_authenticate(boost::asio::io_service &io_service, 
   std::streamsize inbuffer=server_messages.in_avail();
   if (inbuffer < 0)
     inbuffer=0;
-  boost::asio::read(*socket, server_messages, boost::asio::transfer_at_least(packet_length - inbuffer));
+
+  binlog_socket->read(server_messages, boost::asio::transfer_at_least(packet_length - inbuffer));
   std::istream server_stream(&server_messages);
-
   struct st_handshake_package handshake_package;
-
   proto_get_handshake_package(server_stream, handshake_package, packet_length);
 
-  if (authenticate(socket, user, passwd, handshake_package))
+  /*
+   * Set 1 to packet number
+   */
+  binlog_socket->set_packet_number(1);
+
+  /*
+   * SSL start(optional)
+   */
+  if (binlog_socket->is_ssl())
+    start_ssl(binlog_socket, handshake_package);
+
+  /*
+   * Authenticate
+   */
+  if (authenticate(binlog_socket, user, passwd, handshake_package))
     throw std::runtime_error("Authentication failed.");
 
   /*
    * Register slave to master
    */
-  std::ostream command_request_stream(&server_messages);
+  register_slave_to_master(binlog_socket, server_messages, host, port);
 
-  boost::uint8_t val_command = COM_REGISTER_SLAVE;
-  Protocol_chunk<boost::uint8_t> prot_command(val_command);
-  boost::uint16_t val_port = port;
-  Protocol_chunk<boost::uint16_t> prot_connection_port(val_port);
-  boost::uint32_t val_rpl_recovery_rank = 0;
-  Protocol_chunk<boost::uint32_t> prot_rpl_recovery_rank(val_rpl_recovery_rank);
-  boost::uint32_t val_server_id = 1;
-  Protocol_chunk<boost::uint32_t> prot_server_id(val_server_id);
+  return binlog_socket;
+}
 
-  const char* env_libreplication_server_id = std::getenv("LIBREPLICATION_SERVER_ID");
+    std::size_t write_request(Binlog_socket *binlog_socket,
+                              boost::asio::streambuf &request_body_buf,
+                              std::size_t packet_number)
+{
+  int body_size = request_body_buf.size();
+  int header_size = 4;
+  int total_size = body_size + header_size;
 
-  if (env_libreplication_server_id != 0) {
-    try {
-      boost::uint32_t libreplication_server_id = boost::lexical_cast<boost::uint32_t>(env_libreplication_server_id);
-      prot_server_id = libreplication_server_id;
-    } catch (boost::bad_lexical_cast e) {
-      // XXX: nothing to do
-    }
-  }
+  // Header
+  char packet_header[header_size];
+  write_packet_header(packet_header, body_size, packet_number);
 
-  boost::uint32_t val_master_server_id = 0;
-  Protocol_chunk<boost::uint32_t> prot_master_server_id(val_master_server_id);
+  // Entire packet
+  boost::asio::streambuf request_buf;
+  std::ostream request_stream(&request_buf);
+  request_stream.write(packet_header, header_size);
+  request_stream << &request_body_buf;
 
-  boost::uint8_t val_report_host_strlen = host.size();
-  Protocol_chunk<boost::uint8_t> prot_report_host_strlen(val_report_host_strlen);
-  std::string report_user("mrl_user");
-  boost::uint8_t val_user_strlen = report_user.size();
-  Protocol_chunk<boost::uint8_t> prot_user_strlen(val_user_strlen);
-  std::string report_passwd("pw");
-  boost::uint8_t val_passwd_strlen = report_passwd.size();
-  Protocol_chunk<boost::uint8_t> prot_passwd_strlen(val_passwd_strlen);
+  // Send data to server
+  return binlog_socket->write(request_buf, boost::asio::transfer_at_least(total_size));
+}
 
-  command_request_stream << prot_command
-          << prot_server_id
-          << prot_report_host_strlen
-          << host
-          << prot_user_strlen
-          << report_user
-          << prot_passwd_strlen
-          << report_passwd
-          << prot_connection_port
-          << prot_rpl_recovery_rank
-          << prot_master_server_id;
-
-  int size=server_messages.size();
-  char command_packet_header[4];
-  try {
-    write_packet_header(command_packet_header, size, 0); // packet_no= 0
-
-    // Send the request.
-    boost::asio::write(*socket,
-                       boost::asio::buffer(command_packet_header, 4),
-                       boost::asio::transfer_at_least(4));
-    boost::asio::write(*socket, server_messages,
-                       boost::asio::transfer_at_least(size));
-  } catch( boost::system::error_code e)
-  {
-    throw std::runtime_error("Boost system error: " + e.message());
-  }
-
-  // Get Ok-package
-  packet_length=proto_get_one_package(socket, server_messages, &packet_no);
-
-  std::istream cmd_response_stream(&server_messages);
-
-  boost::uint8_t result_type;
-  Protocol_chunk<boost::uint8_t> prot_result_type(result_type);
-
-  cmd_response_stream >> prot_result_type;
-
-  if (result_type == 0)
-  {
-    struct st_ok_package ok_package;
-    prot_parse_ok_message(cmd_response_stream, ok_package, packet_length);
-  } else
-  {
-    struct st_error_package error_package;
-    prot_parse_error_message(cmd_response_stream, error_package, packet_length);
-    throw std::runtime_error("Error from server, code=" + boost::lexical_cast<std::string>(error_package.error_code) + ", message=\"" + error_package.message + "\"");
-  }
-
-  return socket;
+    std::size_t write_request(Binlog_socket *binlog_socket,
+                              boost::asio::streambuf &request_body_buf)
+{
+  return write_request(binlog_socket, request_body_buf, binlog_socket->get_and_increment_packet_number());
 }
 
     void Binlog_tcp_driver::start_binlog_dump(const std::string &binlog_file_name, size_t offset)
 {
   boost::asio::streambuf server_messages;
-
   std::ostream command_request_stream(&server_messages);
 
   boost::uint8_t val_command = COM_BINLOG_DUMP;
@@ -348,16 +329,8 @@ tcp::socket *sync_connect_and_authenticate(boost::asio::io_service &io_service, 
           << prot_server_id
           << binlog_file_name;
 
-  int size=server_messages.size();
-  char command_packet_header[4];
-  write_packet_header(command_packet_header, size, 0);
-
-  // Send the request.
-  boost::asio::write(*m_socket,
-                     boost::asio::buffer(command_packet_header, 4),
-                     boost::asio::transfer_at_least(4));
-  boost::asio::write(*m_socket, server_messages,
-                     boost::asio::transfer_at_least(size));
+  // Send request
+  write_request(m_socket, server_messages, m_socket->reset_and_increment_packet_number());
 
   /*
    Start receiving binlog events.
@@ -504,17 +477,46 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
     //assert(m_event_stream_buffer.size() == 0);
   }
 
-
-  boost::asio::async_read(*m_socket,
-                          boost::asio::buffer(m_event_packet, packet_length),
+  m_socket->async_read(boost::asio::buffer(m_event_packet, packet_length),
                           boost::bind(&Binlog_tcp_driver::handle_net_packet,
                                       this,
                                       boost::asio::placeholders::error,
                                       boost::asio::placeholders::bytes_transferred));
-
 }
 
-    int authenticate(tcp::socket *socket, const std::string& user, const std::string& passwd,
+    void start_ssl(Binlog_socket *binlog_socket, struct st_handshake_package &handshake_package)
+{
+
+  // SSL Body
+  boost::asio::streambuf ssl_request;
+  std::ostream ssl_request_stream(&ssl_request);
+
+  boost::uint8_t filler_buffer[23];
+  memset((char *) filler_buffer, '\0', 23);
+
+  boost::uint32_t val_client_flags = (boost::uint32_t)CLIENT_SSL_FLAGS;
+  Protocol_chunk<boost::uint32_t> prot_client_flags(val_client_flags);
+  boost::uint32_t val_max_packet_size = MAX_PACKAGE_SIZE;
+  Protocol_chunk<boost::uint32_t> prot_max_packet_size(val_max_packet_size);
+  boost::uint8_t val_charset_number = handshake_package.server_language;
+  Protocol_chunk<boost::uint8_t>  prot_charset_number(val_charset_number);
+  Protocol_chunk<boost::uint8_t>  prot_filler_buffer(filler_buffer, 23);
+
+  ssl_request_stream << prot_client_flags
+                     << prot_max_packet_size
+                     << prot_charset_number
+                     << prot_filler_buffer;
+
+  // Send ssl request
+  write_request(binlog_socket, ssl_request, binlog_socket->get_and_increment_packet_number());
+
+  // Handshake for SSL
+  binlog_socket->handshake();
+}
+
+
+    int authenticate(Binlog_socket *binlog_socket, const std::string& user,
+                     const std::string& passwd,
                      const st_handshake_package &handshake_package)
 {
   try
@@ -522,12 +524,11 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
     /*
      * Send authentication package
      */
-    boost::asio::streambuf auth_request_header;
+    // Auth body
     boost::asio::streambuf auth_request;
     std::string database("mysql"); // 0 terminated
 
-
-    std::ostream request_stream(&auth_request);
+    std::ostream auth_request_stream(&auth_request);
 
     boost::uint8_t filler_buffer[23];
     memset((char *) filler_buffer, '\0', 23);
@@ -542,6 +543,8 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
       passwd_length= encrypt_password(reply, scramble_buff, passwd.c_str());
 
     boost::uint32_t val_client_flags = (boost::uint32_t)CLIENT_BASIC_FLAGS;
+    if (binlog_socket->is_ssl())
+      val_client_flags = (boost::uint32_t)CLIENT_SSL_FLAGS;
     Protocol_chunk<boost::uint32_t> prot_client_flags(val_client_flags);
     boost::uint32_t val_max_packet_size = MAX_PACKAGE_SIZE;
     Protocol_chunk<boost::uint32_t> prot_max_packet_size(val_max_packet_size);
@@ -552,41 +555,29 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
     Protocol_chunk<boost::uint8_t>  prot_scramble_buffer_size(val_scramble_buffer_size);
     Protocol_chunk<boost::uint8_t>  prot_scamble_buffer((boost::uint8_t *)reply, passwd_length);
 
-    request_stream << prot_client_flags
-                   << prot_max_packet_size
-                   << prot_charset_number
-                   << prot_filler_buffer
-                   << user << '\0'
-                   << prot_scramble_buffer_size
-                   << prot_scamble_buffer
-                   << database << '\0';
+    auth_request_stream << prot_client_flags
+                        << prot_max_packet_size
+                        << prot_charset_number
+                        << prot_filler_buffer
+                        << user << '\0'
+                        << prot_scramble_buffer_size
+                        << prot_scamble_buffer
+                        << database << '\0';
 
-
-    int size=auth_request.size();
-    char auth_packet_header[4];
-
-    write_packet_header(auth_packet_header, size, 1);
-
-    /*
-     *  Send the request.
-     */
-    boost::asio::write(*socket, boost::asio::buffer(auth_packet_header, 4),
-                       boost::asio::transfer_at_least(4));
-    boost::asio::write(*socket, auth_request,
-                       boost::asio::transfer_at_least(size));
+    // Send auth request
+    write_request(binlog_socket, auth_request, binlog_socket->get_and_increment_packet_number());
 
     /*
      * Get server authentication response
      */
     unsigned long packet_length;
     unsigned char packet_no=1;
-    packet_length=proto_get_one_package(socket, auth_request, &packet_no);
+    packet_length=proto_get_one_package(binlog_socket, auth_request, &packet_no);
 
     std::istream auth_response_stream(&auth_request);
 
     boost::uint8_t result_type;
     Protocol_chunk<boost::uint8_t> prot_result_type(result_type);
-
 
     auth_response_stream >> prot_result_type;
 
@@ -608,7 +599,92 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
   }
 }
 
-int Binlog_tcp_driver::wait_for_next_event(mysql::Binary_log_event **event_ptr)
+    int register_slave_to_master(Binlog_socket *binlog_socket,
+                                 boost::asio::streambuf &server_messages,
+                                 const std::string& host, long port)
+{
+  std::ostream command_request_stream(&server_messages);
+
+  boost::uint8_t val_command = COM_REGISTER_SLAVE;
+  Protocol_chunk<boost::uint8_t> prot_command(val_command);
+  boost::uint16_t val_port = port;
+  Protocol_chunk<boost::uint16_t> prot_connection_port(val_port);
+  boost::uint32_t val_rpl_recovery_rank = 0;
+  Protocol_chunk<boost::uint32_t> prot_rpl_recovery_rank(val_rpl_recovery_rank);
+  boost::uint32_t val_server_id = 1;
+  Protocol_chunk<boost::uint32_t> prot_server_id(val_server_id);
+
+  const char* env_libreplication_server_id = std::getenv("LIBREPLICATION_SERVER_ID");
+
+  if (env_libreplication_server_id != 0) {
+    try {
+      boost::uint32_t libreplication_server_id = boost::lexical_cast<boost::uint32_t>(env_libreplication_server_id);
+      prot_server_id = libreplication_server_id;
+    } catch (boost::bad_lexical_cast e) {
+      // XXX: nothing to do
+    }
+  }
+
+  boost::uint32_t val_master_server_id = 0;
+  Protocol_chunk<boost::uint32_t> prot_master_server_id(val_master_server_id);
+
+  boost::uint8_t val_report_host_strlen = host.size();
+  Protocol_chunk<boost::uint8_t> prot_report_host_strlen(val_report_host_strlen);
+  std::string report_user("mrl_user");
+  boost::uint8_t val_user_strlen = report_user.size();
+  Protocol_chunk<boost::uint8_t> prot_user_strlen(val_user_strlen);
+  std::string report_passwd("pw");
+  boost::uint8_t val_passwd_strlen = report_passwd.size();
+  Protocol_chunk<boost::uint8_t> prot_passwd_strlen(val_passwd_strlen);
+
+  command_request_stream << prot_command
+          << prot_server_id
+          << prot_report_host_strlen
+          << host
+          << prot_user_strlen
+          << report_user
+          << prot_passwd_strlen
+          << report_passwd
+          << prot_connection_port
+          << prot_rpl_recovery_rank
+          << prot_master_server_id;
+
+  try {
+    // Send request.
+    write_request(binlog_socket, server_messages, binlog_socket->reset_and_increment_packet_number());
+  } catch( boost::system::error_code e)
+  {
+    throw std::runtime_error("Boost system error: " + e.message());
+  }
+
+
+  // Get Ok-package
+  unsigned long packet_length;
+  unsigned char packet_no;
+  packet_length=proto_get_one_package(binlog_socket, server_messages, &packet_no);
+
+  std::istream cmd_response_stream(&server_messages);
+
+  boost::uint8_t result_type;
+  Protocol_chunk<boost::uint8_t> prot_result_type(result_type);
+
+  cmd_response_stream >> prot_result_type;
+
+
+  if (result_type == 0)
+  {
+    struct st_ok_package ok_package;
+    prot_parse_ok_message(cmd_response_stream, ok_package, packet_length);
+  } else
+  {
+    struct st_error_package error_package;
+    prot_parse_error_message(cmd_response_stream, error_package, packet_length);
+    throw std::runtime_error("Error from server, code=" + boost::lexical_cast<std::string>(error_package.error_code) + ", message=\"" + error_package.message + "\"");
+  }
+  return 0;
+}
+
+    int Binlog_tcp_driver::wait_for_next_event(mysql::Binary_log_event **event_ptr)
 {
   // poll for new event until one event is found.
   // return the event
@@ -714,16 +790,16 @@ int Binlog_tcp_driver::set_position(const std::string &str, unsigned long positi
     running in another thread asynchronously.
   */
   boost::asio::io_service io_service;
-  tcp::socket *socket;
+  Binlog_socket *binlog_socket;
 
-  if ((socket= sync_connect_and_authenticate(io_service, m_user, m_passwd, m_host, m_port)) == 0) {
+  if ((binlog_socket= sync_connect_and_authenticate(io_service, m_user, m_passwd, m_host, m_port)) == 0) {
     throw std::runtime_error("Connect or authentication error");
   }
 
   std::map<std::string, unsigned long > binlog_map;
-  fetch_binlogs_name_and_size(socket, binlog_map);
-  socket->close();
-  delete socket;
+  fetch_binlogs_name_and_size(binlog_socket, binlog_map);
+  binlog_socket->close();
+  delete binlog_socket;
 
   std::map<std::string, unsigned long >::iterator binlog_itr= binlog_map.find(str);
 
@@ -771,16 +847,16 @@ int Binlog_tcp_driver::get_position(std::string *filename_ptr, unsigned long *po
 {
   boost::asio::io_service io_service;
 
-  tcp::socket *socket;
+  Binlog_socket *binlog_socket;
 
-  if ((socket=sync_connect_and_authenticate(io_service, m_user, m_passwd, m_host, m_port)) == 0)
+  if ((binlog_socket=sync_connect_and_authenticate(io_service, m_user, m_passwd, m_host, m_port)) == 0)
     return ERR_FAIL;
 
-  if (fetch_master_status(socket, &m_binlog_file_name, &m_binlog_offset))
+  if (fetch_master_status(binlog_socket, &m_binlog_file_name, &m_binlog_offset))
     return ERR_FAIL;
 
-  socket->close();
-  delete socket;
+  binlog_socket->close();
+  delete binlog_socket;
   if (filename_ptr)
     *filename_ptr= m_binlog_file_name;
   if (position_ptr)
@@ -788,10 +864,10 @@ int Binlog_tcp_driver::get_position(std::string *filename_ptr, unsigned long *po
   return ERR_OK;
 }
 
-bool fetch_master_status(tcp::socket *socket, std::string *filename, unsigned long *position)
+bool fetch_master_status(Binlog_socket *binlog_socket, std::string *filename, unsigned long *position)
 {
+  // Command body
   boost::asio::streambuf server_messages;
-
   std::ostream command_request_stream(&server_messages);
 
   boost::uint8_t val_command = COM_QUERY;
@@ -800,15 +876,11 @@ bool fetch_master_status(tcp::socket *socket, std::string *filename, unsigned lo
   command_request_stream << prot_command
           << "SHOW MASTER STATUS";
 
-  int size=server_messages.size();
-  char command_packet_header[4];
-  write_packet_header(command_packet_header, size, 0);
+  // Send request
+  write_request(binlog_socket, server_messages, binlog_socket->reset_and_increment_packet_number());
 
-  // Send the request.
-  boost::asio::write(*socket, boost::asio::buffer(command_packet_header, 4), boost::asio::transfer_at_least(4));
-  boost::asio::write(*socket, server_messages, boost::asio::transfer_at_least(size));
-
-  Result_set result_set(socket);
+  // Get response
+  Result_set result_set(binlog_socket);
 
   Converter conv;
   BOOST_FOREACH(Row_of_fields row, result_set)
@@ -822,7 +894,7 @@ bool fetch_master_status(tcp::socket *socket, std::string *filename, unsigned lo
   return false;
 }
 
-bool fetch_binlogs_name_and_size(tcp::socket *socket, std::map<std::string, unsigned long> &binlog_map)
+bool fetch_binlogs_name_and_size(Binlog_socket *binlog_socket, std::map<std::string, unsigned long> &binlog_map)
 {
   boost::asio::streambuf server_messages;
 
@@ -834,15 +906,11 @@ bool fetch_binlogs_name_and_size(tcp::socket *socket, std::map<std::string, unsi
   command_request_stream << prot_command
           << "SHOW BINARY LOGS";
 
-  int size=server_messages.size();
-  char command_packet_header[4];
-  write_packet_header(command_packet_header, size, 0);
+  // Send request
+  write_request(binlog_socket, server_messages, binlog_socket->reset_and_increment_packet_number());
 
-  // Send the request.
-  boost::asio::write(*socket, boost::asio::buffer(command_packet_header, 4), boost::asio::transfer_at_least(4));
-  boost::asio::write(*socket, server_messages, boost::asio::transfer_at_least(size));
-
-  Result_set result_set(socket);
+  // Get response
+  Result_set result_set(binlog_socket);
 
   Converter conv;
   BOOST_FOREACH(Row_of_fields row, result_set)
@@ -911,6 +979,12 @@ int encrypt_password(boost::uint8_t *reply,   /* buffer at least EVP_MAX_MD_SIZE
   for ( i=0 ; i<length_reply ; ++i )
     reply[i] = hash_stage1[i] ^ reply[i];
   return length_reply;
+}
+
+int Binlog_tcp_driver::set_ssl_ca(const std::string& filepath)
+{
+  m_opt_ssl_ca= filepath;
+  return ERR_OK;
 }
 
 }} // end namespace mysql::system

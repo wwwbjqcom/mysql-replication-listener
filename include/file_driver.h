@@ -52,7 +52,7 @@ public:
     int wait_for_next_event(mysql::Binary_log_event **event);
     int set_position(const std::string &str, unsigned long position);
     int get_position(std::string *str, unsigned long *position);
-
+    int set_ssl_ca(const std::string& filepath);
 private:
 
     unsigned long m_binlog_file_size;

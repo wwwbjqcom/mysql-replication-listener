@@ -46,7 +46,7 @@ void Result_set::digest_row_set()
     /*
      * Get server response
      */
-    packet_length= system::proto_get_one_package(m_socket, resultbuff, &packet_no);
+    packet_length= system::proto_get_one_package(m_binlog_socket, resultbuff, &packet_no);
 
     switch(m_current_state)
     {

@@ -233,7 +233,7 @@ public:
  */
 int main(int argc, char** argv)
 {
-  if (argc != 2)
+  if (argc < 2)
   {
     fprintf(stderr,"Usage:\n\treplaybinlog URL\n\nExample:\n\treplaybinlog mysql://root:mypasswd@127.0.0.1:3306\n\n");
     return (EXIT_FAILURE);
@@ -241,6 +241,10 @@ int main(int argc, char** argv)
 
   mysql::Binary_log binlog(mysql::system::create_transport(argv[1]));
 
+  if (argc > 2)
+  {
+    binlog.set_ssl_ca(std::string(argv[2]));
+  }
 
   /*
     Attach a custom event parser which produces user defined events
