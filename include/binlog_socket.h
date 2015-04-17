@@ -127,7 +127,7 @@ public:
   }
 
   template <typename MutableBufferSequence, typename ReadHandler>
-  void async_read(const MutableBufferSequence& buffers, BOOST_ASIO_MOVE_ARG(ReadHandler) handler)
+  void async_read(const MutableBufferSequence& buffers, ReadHandler handler)
   {
     if (should_use_ssl())
       boost::asio::async_read(*m_ssl_socket, buffers, handler);
@@ -136,7 +136,7 @@ public:
   }
 
   template <typename Allocator, typename ReadHandler>
-  void async_read(boost::asio::basic_streambuf<Allocator>& b, BOOST_ASIO_MOVE_ARG(ReadHandler) handler)
+  void async_read(boost::asio::basic_streambuf<Allocator>& b, ReadHandler handler)
   {
     if (should_use_ssl())
       boost::asio::async_read(*m_ssl_socket, b, handler);
