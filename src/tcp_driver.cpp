@@ -282,6 +282,13 @@ static int hash_sha1(boost::uint8_t *output, ...);
   char packet_header[header_size];
   write_packet_header(packet_header, body_size, packet_number);
 
+  /*
+   * The following change which sends head and body in one packet
+   * triggered a potential bug (segmentation fault error),
+   * so decided to comment out.
+   * When network latency is very small, like accessing localhost
+   * mysql-server, and calling set_position method, the program will be crashed.
+  //
   // Entire packet
   boost::asio::streambuf request_buf;
   std::ostream request_stream(&request_buf);
@@ -290,6 +297,12 @@ static int hash_sha1(boost::uint8_t *output, ...);
 
   // Send data to server
   return binlog_socket->write(request_buf, boost::asio::transfer_at_least(total_size));
+  */
+
+  binlog_socket->write(boost::asio::buffer(packet_header, 4),
+                       boost::asio::transfer_at_least(4));
+  return binlog_socket->write(request_body_buf,
+                       boost::asio::transfer_at_least(body_size));
 }
 
     std::size_t write_request(Binlog_socket *binlog_socket,
