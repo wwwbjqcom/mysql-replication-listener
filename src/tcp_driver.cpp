@@ -103,10 +103,6 @@ static int hash_sha1(boost::uint8_t *output, ...);
 
   tcp::resolver resolver(io_service);
   tcp::resolver::query query(host.c_str(), "0");
-  tcp::resolver::query query_nolookup(host.c_str(), "0",
-       boost::asio::ip::resolver_query_base::passive |
-       boost::asio::ip::resolver_query_base::address_configured |
-       boost::asio::ip::resolver_query_base::numeric_host);
 
   boost::system::error_code error=boost::asio::error::host_not_found;
 
@@ -135,10 +131,16 @@ static int hash_sha1(boost::uint8_t *output, ...);
     endpoint_iterator=resolver.resolve(query);
   } catch (boost::system::system_error e) {
     /*
-      Maybe due to a DNS server issue.  Try again without DNS lookup, which
-      works if the given host is a numeric address.
+      Maybe due to a DNS server issue.  Try without DNS lookup, which works if
+      the given host is a numeric address.
      */
-    endpoint_iterator=resolver.resolve(query_nolookup);
+    boost::system::error_code ec;
+    boost::asio::ip::address addr = boost::asio::ip::address::from_string(host, ec);
+    if (ec) {
+      throw std::runtime_error("Host `" + host + "` not found");
+    }
+    tcp::endpoint ep(addr, port);
+    endpoint_iterator=tcp::resolver::iterator::create(ep, host, "0");
   }
   tcp::resolver::iterator end;
 
