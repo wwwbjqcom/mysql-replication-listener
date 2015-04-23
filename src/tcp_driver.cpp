@@ -134,7 +134,10 @@ static int hash_sha1(boost::uint8_t *output, ...);
   try {
     endpoint_iterator=resolver.resolve(query);
   } catch (boost::system::system_error e) {
-    // maybe due to DNS server.  Try again assuming host is numeric.
+    /*
+      Maybe due to a DNS server issue.  Try again without DNS lookup, which
+      works if the given host is a numeric address.
+     */
     endpoint_iterator=resolver.resolve(query_nolookup);
   }
   tcp::resolver::iterator end;
