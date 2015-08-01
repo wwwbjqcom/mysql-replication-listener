@@ -76,6 +76,7 @@ public:
     int get_position(std::string *str, unsigned long *position);
 
     int set_ssl_ca(const std::string& filepath);
+    int set_ssl_cipher(const std::string& cipher_list);
 
     const std::string& user() const { return m_user; }
     const std::string& password() const { return m_passwd; }
@@ -247,7 +248,7 @@ private:
     std::string m_opt_ssl_ca;
     //std::string m_opt_ssl_capath;
     //std::string m_opt_ssl_cert;
-    //std::string m_opt_ssl_cipher;
+    std::string m_opt_ssl_cipher;
     //std::string m_opt_ssl_key;
     //std::string m_opt_ssl_crl;
     //std::string m_opt_ssl_crlpath;

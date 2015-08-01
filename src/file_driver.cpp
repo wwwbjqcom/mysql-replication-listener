@@ -180,5 +180,9 @@ using namespace std;
     return ERR_OK;
   }
 
+  int Binlog_file_driver::set_ssl_cipher(const std::string& cipher_list)
+  {
+    return ERR_OK;
+  }
 }
 }

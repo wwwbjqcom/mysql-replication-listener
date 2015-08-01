@@ -82,6 +82,16 @@ public:
    */
   virtual int set_ssl_ca(const std::string& filepath)= 0;
 
+  /**
+   * Set ssl_cipher list
+   *
+   * @param ssl_cipher_list ssl cipher list
+   *
+   * @retval 0 Success
+   * @retval >0 Error code
+   */
+  virtual int set_ssl_cipher(const std::string& cipher_list)= 0;
+
   Binary_log_event* parse_event(std::istream &sbuff, Log_event_header *header);
 
 protected:

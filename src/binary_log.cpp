@@ -122,4 +122,9 @@ int Binary_log::set_ssl_ca(const std::string& filepath)
   return m_driver->set_ssl_ca(filepath);
 }
 
+int Binary_log::set_ssl_cipher(const std::string& cipher_list)
+{
+  return m_driver->set_ssl_cipher(cipher_list);
+}
+
 }

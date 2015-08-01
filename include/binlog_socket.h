@@ -77,6 +77,14 @@ public:
     }
   }
 
+  void set_ssl_cipher(std::string& cipher_list)
+  {
+    if (is_ssl())
+    {
+      SSL_set_cipher_list(m_ssl_socket->native_handle(), cipher_list.c_str());
+    }
+  }
+
   /**
    * Packet number (for sequence id of mysql packet)
    * http://dev.mysql.com/doc/internals/en/mysql-packet.html
