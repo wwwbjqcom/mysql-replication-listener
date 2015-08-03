@@ -84,6 +84,11 @@ public:
   {
     return ERR_OK;
   }
+
+  virtual int set_ssl_cipher(const std::string& cipher_list)
+  {
+    return ERR_OK;
+  }
 };
 
 class Content_handler;
@@ -158,6 +163,16 @@ public:
    * @retval >0 Error code
    */
   int set_ssl_ca(const std::string& filepath);
+
+  /**
+   * Set ssl_cipher cipher_list
+   *
+   * @param cipher_list cipher list
+   *
+   * @retval 0 Success
+   * @retval >0 Error code
+   */
+  int set_ssl_cipher(const std::string& cipher_list);
 };
 
 }

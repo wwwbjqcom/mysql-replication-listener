@@ -116,7 +116,12 @@ static int hash_sha1(boost::uint8_t *output, ...);
     ctx->set_verify_mode(boost::asio::ssl::context::verify_peer);
 
     ctx->load_verify_file(m_opt_ssl_ca);
+
     binlog_socket = new Binlog_socket(io_service, ctx);
+
+    if (!m_opt_ssl_cipher.empty()) {
+      binlog_socket->set_ssl_cipher(m_opt_ssl_cipher);
+    }
   } else {
     binlog_socket = new Binlog_socket(io_service);
   }
@@ -1013,6 +1018,12 @@ int encrypt_password(boost::uint8_t *reply,   /* buffer at least EVP_MAX_MD_SIZE
 int Binlog_tcp_driver::set_ssl_ca(const std::string& filepath)
 {
   m_opt_ssl_ca= filepath;
+  return ERR_OK;
+}
+
+int Binlog_tcp_driver::set_ssl_cipher(const std::string& cipher_list)
+{
+  m_opt_ssl_cipher= cipher_list;
   return ERR_OK;
 }
 
