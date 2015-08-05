@@ -81,7 +81,11 @@ public:
   {
     if (is_ssl())
     {
+#if (BOOST_VERSION / 100000 >= 1) && (BOOST_VERSION / 100 % 1000 >= 47)
       SSL_set_cipher_list(m_ssl_socket->native_handle(), cipher_list.c_str());
+#else
+#warning "set_ssl_cipher api is disabled. Boost version needs to be 1.47 or later."
+#endif
     }
   }
 
