@@ -78,4 +78,41 @@ Binary_log_event * create_incident_event(unsigned int type, const char *message,
   return incident;
 }
 
+/* 
+   replication event checksum is introduced in the following "checksum-home" version.
+   The checksum-aware servers extract FD's version to decide whether the FD event
+   carries checksum info.
+*/
+const boost::uint8_t checksum_version_split[3]= {5, 6, 1};
+const boost::uint32_t checksum_version_product=
+  (checksum_version_split[0] * 256 + checksum_version_split[1]) * 256 +
+  checksum_version_split[2];
+
+/**
+   @param buf buffer holding serialized FD event
+   @param len netto (possible checksum is stripped off) length of the event buf
+   
+   @return  the version-safe checksum alg descriptor where zero
+            designates no checksum, 255 - the orginator is
+            checksum-unaware (effectively no checksum) and the actuall
+            [1-254] range alg descriptor.
+*/
+boost::uint8_t get_checksum_alg(const char* buf, boost::uint32_t len)
+{
+  boost::uint8_t ret;
+  char version[ST_SERVER_VER_LEN];
+  boost::uint8_t version_split[3];
+
+  memcpy(version, buf +
+         buf[LOG_EVENT_MINIMAL_HEADER_LEN + ST_COMMON_HEADER_LEN_OFFSET]
+         + ST_SERVER_VER_OFFSET, ST_SERVER_VER_LEN);
+  version[ST_SERVER_VER_LEN - 1]= 0;
+  
+  do_server_version_split(version, version_split);
+  ret= (version_product(version_split) < checksum_version_product) ?
+    (boost::uint8_t) BINLOG_CHECKSUM_ALG_UNDEF :
+    * (boost::uint8_t*) (buf + len - BINLOG_CHECKSUM_LEN - BINLOG_CHECKSUM_ALG_DESC_LEN);
+  return ret;
+}
+
 } // end namespace mysql

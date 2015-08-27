@@ -30,6 +30,10 @@ Binary_log_event* Binary_log_driver::parse_event(boost::asio::streambuf
 Binary_log_event* Binary_log_driver::parse_event(std::istream &is,
                                                  Log_event_header *header)
 {
+  std::cout << "parse_event(eventid:" << (int)header->type_code
+   << ",file:" << m_binlog_file_name
+   << ",pos:" << m_binlog_offset
+   << ")\n";
   Binary_log_event *parsed_event= 0;
 
   switch (header->type_code) {
@@ -60,6 +64,27 @@ Binary_log_event* Binary_log_driver::parse_event(std::istream &is,
       break;
     case USER_VAR_EVENT:
       parsed_event= proto_uservar_event(is, header);
+      break;
+    case FORMAT_DESCRIPTION_EVENT:
+      {
+        std::cout << "FD event\n";
+        std::string buf;
+        boost::uint32_t len = header->event_length;
+        std::cout << "len: " << len << "\n";
+        for (int i=0; i< len; i++)
+        {
+          char ch;
+          is.get(ch);
+          buf.push_back(ch);
+        }
+        std::cout << "buf: " << buf << "\n";
+        is.seekg(-len, is.cur);
+        std::cout << "calling get_checksum_alg\n";
+        m_checksum_alg= get_checksum_alg(buf.data(), len);
+        std::cout << "m_checksum_alg: " << m_checksum_alg << "\n";
+        parsed_event= new Binary_log_event(header);
+        std::cout << "FD done\n";
+      }
       break;
     default:
       {

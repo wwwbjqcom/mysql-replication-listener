@@ -31,7 +31,8 @@ class Binary_log_driver
 public:
   template <class FilenameT>
   Binary_log_driver(const FilenameT& filename = FilenameT(), unsigned int offset = 0)
-    : m_binlog_file_name(filename), m_binlog_offset(offset)
+    : m_binlog_file_name(filename), m_binlog_offset(offset),
+      m_checksum_alg(BINLOG_CHECKSUM_ALG_UNDEF)
   {
   }
 
@@ -101,6 +102,11 @@ protected:
    */
   unsigned long m_binlog_offset;
   std::string m_binlog_file_name;
+
+  /**
+   * Checksum algorythm
+   */
+  boost::uint8_t m_checksum_alg;
 };
 
 } // namespace mysql::system
