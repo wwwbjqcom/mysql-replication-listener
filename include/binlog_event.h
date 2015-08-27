@@ -28,6 +28,45 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 
 namespace mysql
 {
+/*
+ We could have used SERVER_VERSION_LENGTH, but this introduces an
+ obscure dependency - if somebody decided to change SERVER_VERSION_LENGTH
+ this would break the replication protocol
+*/
+#define ST_SERVER_VER_LEN 50
+
+/*
+   Fixed header length, where 4.x and 5.0 agree. That is, 5.0 may have a longer
+   header (it will for sure when we have the unique event's ID), but at least
+   the first 19 bytes are the same in 4.x and 5.0. So when we have the unique
+   event's ID, LOG_EVENT_HEADER_LEN will be something like 26, but
+   LOG_EVENT_MINIMAL_HEADER_LEN will remain 19.
+*/
+#define LOG_EVENT_MINIMAL_HEADER_LEN 19U
+
+/* start event post-header (for v3 and v4) */
+
+#define ST_BINLOG_VER_OFFSET  0
+#define ST_SERVER_VER_OFFSET  2
+#define ST_CREATED_OFFSET     (ST_SERVER_VER_OFFSET + ST_SERVER_VER_LEN)
+#define ST_COMMON_HEADER_LEN_OFFSET (ST_CREATED_OFFSET + 4)
+
+enum enum_binlog_checksum_alg {
+  BINLOG_CHECKSUM_ALG_OFF= 0,    // Events are without checksum though its generator
+                                 // is checksum-capable New Master (NM).
+  BINLOG_CHECKSUM_ALG_CRC32= 1,  // CRC32 of zlib algorithm.
+  BINLOG_CHECKSUM_ALG_ENUM_END,  // the cut line: valid alg range is [1, 0x7f].
+  BINLOG_CHECKSUM_ALG_UNDEF= 255 // special value to tag undetermined yet checksum
+                                 // or events from checksum-unaware servers
+};
+
+#define CHECKSUM_CRC32_SIGNATURE_LEN 4
+/**
+   defined statically while there is just one alg implemented
+*/
+#define BINLOG_CHECKSUM_LEN CHECKSUM_CRC32_SIGNATURE_LEN
+#define BINLOG_CHECKSUM_ALG_DESC_LEN 1  /* 1 byte checksum alg descriptor */
+
 /**
   @enum Log_event_type
 
@@ -263,6 +302,47 @@ public:
 };
 
 Binary_log_event *create_incident_event(unsigned int type, const char *message, unsigned long pos= 0);
+
+boost::uint8_t get_checksum_alg(const char* buf, boost::uint32_t len);
+
+inline boost::uint32_t version_product(const boost::uint8_t* version_split)
+{
+  return ((version_split[0] * 256 + version_split[1]) * 256
+          + version_split[2]);
+}
+
+/**
+   Splits server 'version' string into three numeric pieces stored
+   into 'split_versions':
+   X.Y.Zabc (X,Y,Z numbers, a not a digit) -> {X,Y,Z}
+   X.Yabc -> {X,Y,0}
+*/
+inline void do_server_version_split(char* version, boost::uint8_t split_versions[3])
+{
+  char *p= version, *r;
+  boost::uint32_t number;
+  for (uint i= 0; i<=2; i++)
+  {
+    number= strtoul(p, &r, 10);
+    /*
+      It is an invalid version if any version number greater than 255 or
+      first number is not followed by '.'.
+    */
+    if (number < 256 && (*r == '.' || i != 0))
+      split_versions[i]= (boost::uint8_t)number;
+    else
+    {
+      split_versions[0]= 0;
+      split_versions[1]= 0;
+      split_versions[2]= 0;
+      break;
+    }
+
+    p= r;
+    if (*r == '.')
+      p++; // skip the dot
+  }
+}
 
 } // end namespace mysql
 

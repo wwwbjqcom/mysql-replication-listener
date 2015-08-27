@@ -305,6 +305,16 @@ bool fetch_master_status(Binlog_socket *binlog_socket, std::string *filename, un
  * names and sizes in a map.
  */
 bool fetch_binlogs_name_and_size(Binlog_socket *binlog_socket, std::map<std::string, unsigned long> &binlog_map);
+/**
+ * Sends a "SET @master_binlog_checksum=..." command to the server in order to
+ * notify that the slave is aware of checksum.
+ */
+bool set_master_binlog_checksum(Binlog_socket *binlog_socket);
+
+/**
+ * Fetch the master's binlog checksum type
+ */
+bool fetch_master_binlog_checksum(Binlog_socket *binlog_socket, boost::uint8_t &checksum_alg);
 
 } }
 #endif	/* _TCP_DRIVER_H */

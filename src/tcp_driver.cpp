@@ -84,6 +84,8 @@ static int hash_sha1(boost::uint8_t *output, ...);
     m_binlog_offset=offset;
   }
 
+  set_master_binlog_checksum(m_socket);
+  fetch_master_binlog_checksum(m_socket, m_checksum_alg);
 
   /* We're ready to start the io service and request the binlog dump. */
   start_binlog_dump(m_binlog_file_name, m_binlog_offset);
@@ -406,6 +408,8 @@ static void proto_event_packet_header(boost::asio::streambuf &event_src, Log_eve
 
 void Binlog_tcp_driver::handle_net_packet(const boost::system::error_code& err, std::size_t bytes_transferred)
 {
+  std::cout << "bytes_transferred:" << bytes_transferred
+  << "\n";
   if (err)
   {
     Binary_log_event * ev= create_incident_event(175, err.message().c_str(), m_binlog_offset);
@@ -443,6 +447,9 @@ void Binlog_tcp_driver::handle_net_packet(const boost::system::error_code& err, 
      */
     //std::cerr << "Consuming event stream for header. Size before: " << m_event_stream_buffer.size() << std::endl;
     proto_event_packet_header(m_event_stream_buffer, m_waiting_event);
+    std::cout << "m_waiting_event type:" << (int)m_waiting_event->type_code
+    << "length:" << m_waiting_event->event_length
+    << std::endl;
     //std::cerr << " Size after: " << m_event_stream_buffer.size() << std::endl;
   }
 
@@ -455,6 +462,8 @@ void Binlog_tcp_driver::handle_net_packet(const boost::system::error_code& err, 
      Next we need to parse the payload buffer
      */
     std::istream is(&m_event_stream_buffer);
+    std::cout << "stream size:" << m_event_stream_buffer.size()
+    << "\n";
     Binary_log_event * event= parse_event(is, m_waiting_event);
 
     m_event_stream_buffer.consume(m_event_stream_buffer.size());
@@ -954,6 +963,84 @@ bool fetch_binlogs_name_and_size(Binlog_socket *binlog_socket, std::map<std::str
     conv.to(filename, row[0]);
     conv.to(position, row[1]);
     binlog_map.insert(std::make_pair<std::string, unsigned long>(filename, (unsigned long)position));
+  }
+  return false;
+}
+
+bool set_master_binlog_checksum(Binlog_socket *binlog_socket)
+{
+  boost::asio::streambuf server_messages;
+
+  std::ostream command_request_stream(&server_messages);
+
+  boost::uint8_t val_command = COM_QUERY;
+  Protocol_chunk<boost::uint8_t> prot_command(val_command);
+
+  command_request_stream << prot_command
+          << "SET @master_binlog_checksum=@@global.binlog_checksum";
+
+  // Send request
+  write_request(binlog_socket, server_messages, binlog_socket->reset_and_increment_packet_number());
+
+  // Get Ok-package
+  unsigned long packet_length;
+  unsigned char packet_no;
+  packet_length=proto_get_one_package(binlog_socket, server_messages, &packet_no);
+
+  std::istream cmd_response_stream(&server_messages);
+
+  boost::uint8_t result_type;
+  Protocol_chunk<boost::uint8_t> prot_result_type(result_type);
+
+  cmd_response_stream >> prot_result_type;
+
+
+  if (result_type == 0)
+  {
+    struct st_ok_package ok_package;
+    prot_parse_ok_message(cmd_response_stream, ok_package, packet_length);
+  } else
+  {
+    // TODO The master doesn't know about checksum.  Handle nicely.
+    struct st_error_package error_package;
+    prot_parse_error_message(cmd_response_stream, error_package, packet_length);
+    throw std::runtime_error("Error from server, code=" + boost::lexical_cast<std::string>(error_package.error_code) + ", message=\"" + error_package.message + "\"");
+  }
+  return false;
+}
+
+bool fetch_master_binlog_checksum(Binlog_socket *binlog_socket, boost::uint8_t &checksum_alg)
+{
+  boost::asio::streambuf server_messages;
+
+  std::ostream command_request_stream(&server_messages);
+
+  boost::uint8_t val_command = COM_QUERY;
+  Protocol_chunk<boost::uint8_t> prot_command(val_command);
+
+  command_request_stream << prot_command
+          << "SELECT @master_binlog_checksum";
+
+  // Send request
+  write_request(binlog_socket, server_messages, binlog_socket->reset_and_increment_packet_number());
+
+  // Get response
+  Result_set result_set(binlog_socket);
+
+  Converter conv;
+  BOOST_FOREACH(Row_of_fields row, result_set)
+  {
+    std::string checksum_type_name;
+    conv.to(checksum_type_name, row[0]);
+    std::cout << "checksum_type_name:" << checksum_type_name
+    << "\n";
+
+    if (checksum_type_name == "NONE")
+      checksum_alg = BINLOG_CHECKSUM_ALG_OFF;
+    else if (checksum_type_name == "CRC32")
+      checksum_alg = BINLOG_CHECKSUM_ALG_CRC32;
+    else
+      checksum_alg = BINLOG_CHECKSUM_ALG_UNDEF;
   }
   return false;
 }
