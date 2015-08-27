@@ -36,34 +36,36 @@ Binary_log_event* Binary_log_driver::parse_event(std::istream &is,
    << ")\n";
   Binary_log_event *parsed_event= 0;
 
+  boost::uint32_t event_length= header->event_length;
+
   switch (header->type_code) {
     case TABLE_MAP_EVENT:
-      parsed_event= proto_table_map_event(is, header);
+      parsed_event= proto_table_map_event(is, header, event_length);
       break;
     case QUERY_EVENT:
-      parsed_event= proto_query_event(is, header);
+      parsed_event= proto_query_event(is, header, event_length);
       break;
     case INCIDENT_EVENT:
-      parsed_event= proto_incident_event(is, header);
+      parsed_event= proto_incident_event(is, header, event_length);
       break;
     case WRITE_ROWS_EVENT:
     case UPDATE_ROWS_EVENT:
     case DELETE_ROWS_EVENT:
-      parsed_event= proto_rows_event(is, header);
+      parsed_event= proto_rows_event(is, header, event_length);
       break;
     case ROTATE_EVENT:
       {
-        Rotate_event *rot= proto_rotate_event(is, header);
+        Rotate_event *rot= proto_rotate_event(is, header, event_length);
         m_binlog_file_name= rot->binlog_file;
         m_binlog_offset= (unsigned long)rot->binlog_pos;
         parsed_event= rot;
       }
       break;
     case INTVAR_EVENT:
-      parsed_event= proto_intvar_event(is, header);
+      parsed_event= proto_intvar_event(is, header, event_length);
       break;
     case USER_VAR_EVENT:
-      parsed_event= proto_uservar_event(is, header);
+      parsed_event= proto_uservar_event(is, header, event_length);
       break;
     case FORMAT_DESCRIPTION_EVENT:
       {

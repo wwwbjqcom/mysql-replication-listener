@@ -315,7 +315,7 @@ std::ostream &operator<<(std::ostream &os, Protocol &chunk)
   return os;
 }
 
-Query_event *proto_query_event(std::istream &is, Log_event_header *header)
+Query_event *proto_query_event(std::istream &is, Log_event_header *header, boost::uint32_t event_length)
 {
   boost::uint8_t db_name_len;
   boost::uint16_t var_size;
@@ -339,7 +339,7 @@ Query_event *proto_query_event(std::istream &is, Log_event_header *header)
 
   /*
     Query length =
-    Total event length (header->event_length) -
+    Total event length (event_length) -
       (
         (LOG_EVENT_HEADER_SIZE - 1) +  //Shouldn't LOG_EVENT_HEADER_SIZE=19?
         Thread-id (pre-defined, 4) +
@@ -355,7 +355,7 @@ Query_event *proto_query_event(std::istream &is, Log_event_header *header)
     which gives :
   */
 
-  query_len= header->event_length - (LOG_EVENT_HEADER_SIZE + 13 + var_size +
+  query_len= event_length - (LOG_EVENT_HEADER_SIZE + 13 + var_size +
                                      db_name_len);
 
   qev->variables.reserve(var_size);
@@ -378,21 +378,25 @@ Query_event *proto_query_event(std::istream &is, Log_event_header *header)
   return qev;
 }
 
-Rotate_event *proto_rotate_event(std::istream &is, Log_event_header *header)
+Rotate_event *proto_rotate_event(std::istream &is, Log_event_header *header, boost::uint32_t event_length)
 {
   Rotate_event *rev= new Rotate_event(header);
 
-  boost::uint32_t file_name_length= header->event_length - 7 - LOG_EVENT_HEADER_SIZE;
+  boost::uint32_t file_name_length= event_length - 7 - LOG_EVENT_HEADER_SIZE;
 
   Protocol_chunk<boost::uint64_t > prot_position(rev->binlog_pos);
   Protocol_chunk_string prot_file_name(rev->binlog_file, file_name_length);
   is >> prot_position
      >> prot_file_name;
 
+  std::cout << "file:" << rev->binlog_file
+  << "pos:" << rev->binlog_pos
+  << "\n";
+
   return rev;
 }
 
-Incident_event *proto_incident_event(std::istream &is, Log_event_header *header)
+Incident_event *proto_incident_event(std::istream &is, Log_event_header *header, boost::uint32_t event_length)
 {
   Incident_event *incident= new Incident_event(header);
   Protocol_chunk<boost::uint8_t> proto_incident_code(incident->type);
@@ -404,7 +408,7 @@ Incident_event *proto_incident_event(std::istream &is, Log_event_header *header)
   return incident;
 }
 
-Row_event *proto_rows_event(std::istream &is, Log_event_header *header)
+Row_event *proto_rows_event(std::istream &is, Log_event_header *header, boost::uint32_t event_length)
 {
   Row_event *rev=new Row_event(header);
 
@@ -441,7 +445,7 @@ Row_event *proto_rows_event(std::istream &is, Log_event_header *header)
   if (header->type_code == UPDATE_ROWS_EVENT)
     bytes_read+=used_column_len;
 
-  unsigned long row_len= header->event_length - bytes_read - LOG_EVENT_HEADER_SIZE + 1;
+  unsigned long row_len= event_length - bytes_read - LOG_EVENT_HEADER_SIZE + 1;
   //std::cout << "Bytes read: " << bytes_read << " Bytes expected: " << row_len << std::endl;
   Protocol_chunk_vector proto_row(rev->row, row_len);
   is >> proto_row;
@@ -449,7 +453,7 @@ Row_event *proto_rows_event(std::istream &is, Log_event_header *header)
   return rev;
 }
 
-Int_var_event *proto_intvar_event(std::istream &is, Log_event_header *header)
+Int_var_event *proto_intvar_event(std::istream &is, Log_event_header *header, boost::uint32_t event_length)
 {
   Int_var_event *event= new Int_var_event(header);
 
@@ -461,7 +465,7 @@ Int_var_event *proto_intvar_event(std::istream &is, Log_event_header *header)
   return event;
 }
 
-User_var_event *proto_uservar_event(std::istream &is, Log_event_header *header)
+User_var_event *proto_uservar_event(std::istream &is, Log_event_header *header, boost::uint32_t event_length)
 {
   User_var_event *event= new User_var_event(header);
 
@@ -493,7 +497,7 @@ User_var_event *proto_uservar_event(std::istream &is, Log_event_header *header)
   return event;
 }
 
-Table_map_event *proto_table_map_event(std::istream &is, Log_event_header *header)
+Table_map_event *proto_table_map_event(std::istream &is, Log_event_header *header, boost::uint32_t event_length)
 {
   Table_map_event *tmev=new Table_map_event(header);
   boost::uint64_t columns_len= 0;
