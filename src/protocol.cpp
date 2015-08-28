@@ -389,10 +389,6 @@ Rotate_event *proto_rotate_event(std::istream &is, Log_event_header *header, boo
   is >> prot_position
      >> prot_file_name;
 
-  std::cout << "file:" << rev->binlog_file
-  << "pos:" << rev->binlog_pos
-  << "\n";
-
   return rev;
 }
 

@@ -411,8 +411,6 @@ static void proto_event_packet_header(boost::asio::streambuf &event_src, Log_eve
 
 void Binlog_tcp_driver::handle_net_packet(const boost::system::error_code& err, std::size_t bytes_transferred)
 {
-  std::cout << "bytes_transferred:" << bytes_transferred
-  << "\n";
   if (err)
   {
     Binary_log_event * ev= create_incident_event(175, err.message().c_str(), m_binlog_offset);
@@ -450,9 +448,6 @@ void Binlog_tcp_driver::handle_net_packet(const boost::system::error_code& err, 
      */
     //std::cerr << "Consuming event stream for header. Size before: " << m_event_stream_buffer.size() << std::endl;
     proto_event_packet_header(m_event_stream_buffer, m_waiting_event);
-    std::cout << "m_waiting_event type:" << (int)m_waiting_event->type_code
-    << "length:" << m_waiting_event->event_length
-    << std::endl;
     //std::cerr << " Size after: " << m_event_stream_buffer.size() << std::endl;
   }
 
@@ -465,8 +460,6 @@ void Binlog_tcp_driver::handle_net_packet(const boost::system::error_code& err, 
      Next we need to parse the payload buffer
      */
     std::istream is(&m_event_stream_buffer);
-    std::cout << "stream size:" << m_event_stream_buffer.size()
-    << "\n";
     Binary_log_event * event= parse_event(is, m_waiting_event);
 
     m_event_stream_buffer.consume(m_event_stream_buffer.size());
@@ -1041,8 +1034,6 @@ bool fetch_master_binlog_checksum(Binlog_socket *binlog_socket, boost::uint8_t &
   {
     std::string checksum_type_name;
     conv.to(checksum_type_name, row[0]);
-    std::cout << "checksum_type_name:" << checksum_type_name
-    << "\n";
 
     if (checksum_type_name == "NONE")
       checksum_alg = BINLOG_CHECKSUM_ALG_OFF;

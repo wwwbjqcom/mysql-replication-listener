@@ -106,15 +106,7 @@ boost::uint8_t get_checksum_alg(const char* payload_buf, boost::uint32_t len)
   memcpy(version, payload_buf + ST_SERVER_VER_OFFSET, ST_SERVER_VER_LEN);
   version[ST_SERVER_VER_LEN - 1]= 0;
   
-  std::cout << "version:" << version
-            << "\n";
   do_server_version_split(version, version_split);
-  std::cout << "version_split:" << (int)version_split[0]
-            << "," << (int)version_split[1]
-            << "," << (int)version_split[2]
-            << ",version:" << version_product(version_split)
-            << ", checksum_version_product:" << checksum_version_product
-            << "\n";
   ret= (version_product(version_split) < checksum_version_product) ?
     (boost::uint8_t) BINLOG_CHECKSUM_ALG_UNDEF :
     * (boost::uint8_t*) (payload_buf + len - BINLOG_CHECKSUM_LEN - BINLOG_CHECKSUM_ALG_DESC_LEN);
