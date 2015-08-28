@@ -303,7 +303,7 @@ public:
 
 Binary_log_event *create_incident_event(unsigned int type, const char *message, unsigned long pos= 0);
 
-boost::uint8_t get_checksum_alg(const char* buf, boost::uint32_t len);
+boost::uint8_t get_checksum_alg(const char* payload_buf, boost::uint32_t len);
 
 inline boost::uint32_t version_product(const boost::uint8_t* version_split)
 {

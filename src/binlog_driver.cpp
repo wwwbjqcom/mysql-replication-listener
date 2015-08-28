@@ -31,12 +31,15 @@ Binary_log_event* Binary_log_driver::parse_event(std::istream &is,
                                                  Log_event_header *header)
 {
   std::cout << "parse_event(eventid:" << (int)header->type_code
-   << ",file:" << m_binlog_file_name
-   << ",pos:" << m_binlog_offset
+   << ", next_position:" << header->next_position
    << ")\n";
   Binary_log_event *parsed_event= 0;
 
   boost::uint32_t event_length= header->event_length;
+
+  if (m_checksum_alg == BINLOG_CHECKSUM_ALG_CRC32) {
+    event_length -= CHECKSUM_CRC32_SIGNATURE_LEN;
+  }
 
   switch (header->type_code) {
     case TABLE_MAP_EVENT:
@@ -71,19 +74,29 @@ Binary_log_event* Binary_log_driver::parse_event(std::istream &is,
       {
         std::cout << "FD event\n";
         std::string buf;
-        boost::uint32_t len = header->event_length;
+        // The length of the payload is unknown until we get the common header
+        // length which is stored in the stream itself.  So, read the stream to
+        // the location where the common header length is stored.
+        boost::uint32_t len = ST_COMMON_HEADER_LEN_OFFSET + 1;
         std::cout << "len: " << len << "\n";
         for (int i=0; i< len; i++)
         {
           char ch;
           is.get(ch);
+          std::cout << "ch:" << (int)ch << "\n";
           buf.push_back(ch);
+          if (i == ST_COMMON_HEADER_LEN_OFFSET) {
+            int common_header_len = ch;
+            // Now we know the correct payload size.  update the length.
+            len = header->event_length - common_header_len;
+            std::cout << "len(final): " << len << "\n";
+          }
         }
         std::cout << "buf: " << buf << "\n";
         is.seekg(-len, is.cur);
         std::cout << "calling get_checksum_alg\n";
         m_checksum_alg= get_checksum_alg(buf.data(), len);
-        std::cout << "m_checksum_alg: " << m_checksum_alg << "\n";
+        std::cout << "m_checksum_alg: " << (int)m_checksum_alg << "\n";
         parsed_event= new Binary_log_event(header);
         std::cout << "FD done\n";
       }

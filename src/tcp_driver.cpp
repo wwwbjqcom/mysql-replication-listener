@@ -84,8 +84,11 @@ static int hash_sha1(boost::uint8_t *output, ...);
     m_binlog_offset=offset;
   }
 
-  set_master_binlog_checksum(m_socket);
-  fetch_master_binlog_checksum(m_socket, m_checksum_alg);
+  bool checksum_aware_master = false;
+  set_master_binlog_checksum(m_socket, checksum_aware_master);
+  if (checksum_aware_master) {
+    fetch_master_binlog_checksum(m_socket, m_checksum_alg);
+  }
 
   /* We're ready to start the io service and request the binlog dump. */
   start_binlog_dump(m_binlog_file_name, m_binlog_offset);
@@ -967,7 +970,7 @@ bool fetch_binlogs_name_and_size(Binlog_socket *binlog_socket, std::map<std::str
   return false;
 }
 
-bool set_master_binlog_checksum(Binlog_socket *binlog_socket)
+bool set_master_binlog_checksum(Binlog_socket *binlog_socket, bool &checksum_aware_master)
 {
   boost::asio::streambuf server_messages;
 
@@ -999,12 +1002,18 @@ bool set_master_binlog_checksum(Binlog_socket *binlog_socket)
   {
     struct st_ok_package ok_package;
     prot_parse_ok_message(cmd_response_stream, ok_package, packet_length);
+    checksum_aware_master = true;
   } else
   {
-    // TODO The master doesn't know about checksum.  Handle nicely.
+    checksum_aware_master = false;
     struct st_error_package error_package;
     prot_parse_error_message(cmd_response_stream, error_package, packet_length);
-    throw std::runtime_error("Error from server, code=" + boost::lexical_cast<std::string>(error_package.error_code) + ", message=\"" + error_package.message + "\"");
+    if (error_package.error_code == 1193) {// ER_UNKNOWN_SYSTEM_VARIABLE
+      // The master does not know about checksum.  No need to throw an
+      // exception.
+    } else {
+      throw std::runtime_error("Error from server, code=" + boost::lexical_cast<std::string>(error_package.error_code) + ", message=\"" + error_package.message + "\"");
+    }
   }
   return false;
 }
