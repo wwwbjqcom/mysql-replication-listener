@@ -301,8 +301,8 @@ public:
   virtual const char *data() { return m_data; }
   virtual void collapse_size(unsigned int new_size)
   {
-    //assert(new_size <= m_size);
-    memset((char *)m_data+new_size,'\0', m_size-new_size);
+    if (m_size-new_size > 0)
+      memset((char *)m_data+new_size,'\0', m_size-new_size);
     m_size= new_size;
   }
 private:

@@ -215,6 +215,7 @@ std::istream &operator>>(std::istream &is, Protocol &chunk)
 {
  if (chunk.is_length_encoded_binary())
   {
+    int orig_size= chunk.size();
     is.read((char *)chunk.data(),1);
     unsigned char byte= *(unsigned char *)chunk.data();
     if (byte < 250)
@@ -232,11 +233,15 @@ std::istream &operator>>(std::istream &is, Protocol &chunk)
     }
     else if (byte == 252)
     {
-      chunk.collapse_size(2);
+      chunk.collapse_size(3);
     }
     else if(byte == 253)
     {
-      chunk.collapse_size(3);
+      chunk.collapse_size(4);
+    }
+    else if(byte == 254)
+    {
+      chunk.collapse_size(9);
     }
 
     /* Read remaining bytes */
@@ -244,11 +249,14 @@ std::istream &operator>>(std::istream &is, Protocol &chunk)
     char ch;
     char *ptr= (char*)chunk.data();
     int ct= 0;
-    while(ct < chunk.size())
+    while(ct < chunk.size() - 1)
     {
       is.get(ch);
       ptr[ct]= ch;
       ++ct;
+    }
+    if (ct < orig_size) {
+      ptr[ct]= '\0';
     }
   }
   else
@@ -437,12 +445,18 @@ Row_event *proto_rows_event(std::istream &is, Log_event_header *header, boost::u
     is >> proto_columns_before_image;
   }
 
+  //std::cout << "proto_table_id.size:" << proto_table_id.size()
+  //          << " proto_flags.size:" << proto_flags.size()
+  //          << " proto_column_len.size:" << proto_column_len.size()
+  //          << " used_column_leng:" << used_column_len
+  //          << std::endl;
   int bytes_read=proto_table_id.size() + proto_flags.size() + proto_column_len.size() + used_column_len;
   if (header->type_code == UPDATE_ROWS_EVENT)
     bytes_read+=used_column_len;
 
   unsigned long row_len= event_length - bytes_read - LOG_EVENT_HEADER_SIZE + 1;
   //std::cout << "Bytes read: " << bytes_read << " Bytes expected: " << row_len << std::endl;
+  //std::cout << "event_length:" << event_length << std::endl;
   Protocol_chunk_vector proto_row(rev->row, row_len);
   is >> proto_row;
 
