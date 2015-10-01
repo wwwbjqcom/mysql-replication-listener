@@ -737,32 +737,36 @@ void Binlog_tcp_driver::start_event_loop()
 {
   while (true)
   {
-    boost::system::error_code err;
-    int executed_jobs=m_io_service.run(err);
-    if (err)
-    {
-      // TODO what error appear here?
+    try {
+      boost::system::error_code err;
+      int executed_jobs=m_io_service.run(err);
+      if (err)
+      {
+        // TODO what error appear here?
+      }
+
+      /*
+        This function must be called prior to any second or later set of
+        invocations of the run(), run_one(), poll() or poll_one() functions when
+        a previous invocation of these functions returned due to the io_service
+        being stopped or running out of work. This function allows the io_service
+        to reset any internal state, such as a "stopped" flag.
+      */
+      m_io_service.reset();
+
+      /*
+        Don't shutdown until the io service has reset!
+      */
+      if (m_shutdown)
+      {
+        m_shutdown= false;
+        break;
+      }
+
+      reconnect();
+    } catch (const std::exception& e) {
+      std::cerr << "error in the event loop: " << e.what() << "\n";
     }
-
-    /*
-      This function must be called prior to any second or later set of
-      invocations of the run(), run_one(), poll() or poll_one() functions when
-      a previous invocation of these functions returned due to the io_service
-      being stopped or running out of work. This function allows the io_service
-      to reset any internal state, such as a "stopped" flag.
-    */
-    m_io_service.reset();
-
-    /*
-      Don't shutdown until the io service has reset!
-    */
-    if (m_shutdown)
-    {
-      m_shutdown= false;
-      break;
-    }
-
-    reconnect();
   }
 
 }
