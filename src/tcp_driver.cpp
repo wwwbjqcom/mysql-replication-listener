@@ -36,6 +36,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 #include <boost/lexical_cast.hpp>
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
+#include <boost/chrono.hpp>
 
 #include "protocol.h"
 #include "binlog_event.h"
@@ -763,6 +764,7 @@ void Binlog_tcp_driver::start_event_loop()
         break;
       }
 
+      boost::this_thread::sleep_for(boost::chrono::seconds(1));
       reconnect();
     } catch (const std::exception& e) {
       std::cerr << "error in the event loop: " << e.what() << "\n";
