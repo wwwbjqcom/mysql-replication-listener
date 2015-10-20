@@ -114,7 +114,13 @@ unsigned long Binary_log::get_position(std::string &filename)
 
 int Binary_log::connect()
 {
-  return m_driver->connect();
+  try {
+    return m_driver->connect();
+  }catch (const std::exception& e) {
+    delete(m_driver);
+    m_driver = NULL;
+    throw;
+  }
 }
 
 int Binary_log::set_ssl_ca(const std::string& filepath)
