@@ -148,6 +148,7 @@ static int hash_sha1(boost::uint8_t *output, ...);
     boost::system::error_code ec;
     boost::asio::ip::address addr = boost::asio::ip::address::from_string(host, ec);
     if (ec) {
+      delete(binlog_socket);
       throw std::runtime_error("Host `" + host + "` not found");
     }
     tcp::endpoint ep(addr, port);
@@ -170,6 +171,7 @@ static int hash_sha1(boost::uint8_t *output, ...);
 
   if (error)
   {
+    delete(binlog_socket);
     throw std::runtime_error("Boost error: " + error.message());
   }
 
@@ -256,6 +258,7 @@ static int hash_sha1(boost::uint8_t *output, ...);
   unsigned char packet_no;
   if (proto_read_package_header(binlog_socket, server_messages, &packet_length, &packet_no))
   {
+    delete(binlog_socket);
     throw std::runtime_error("Invalid package header");
   }
 
@@ -285,8 +288,10 @@ static int hash_sha1(boost::uint8_t *output, ...);
   /*
    * Authenticate
    */
-  if (authenticate(binlog_socket, user, passwd, handshake_package))
+  if (authenticate(binlog_socket, user, passwd, handshake_package)){
+    delete(binlog_socket);
     throw std::runtime_error("Authentication failed.");
+  }
 
   /*
    * Register slave to master
