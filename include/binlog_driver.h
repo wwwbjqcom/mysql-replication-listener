@@ -36,7 +36,7 @@ public:
   {
   }
 
-  ~Binary_log_driver() {}
+  virtual ~Binary_log_driver() {}
 
   /**
    * Connect to the binary log using previously declared connection parameters
