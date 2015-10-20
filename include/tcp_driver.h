@@ -54,6 +54,12 @@ public:
 
     ~Binlog_tcp_driver()
     {
+      disconnect();
+      m_io_service.post(boost::bind(&Binlog_tcp_driver::shutdown, this));
+      if (m_event_loop){
+        m_event_loop->join();
+        delete m_event_loop;
+      }
         delete m_event_queue;
         delete m_socket;
     }
