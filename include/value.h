@@ -62,6 +62,17 @@ public:
                               metadata);
       //std::cout << "TYPE: " << type << " SIZE: " << m_size << std::endl;
     };
+    
+    Value(enum system::enum_field_types type, boost::uint32_t metadata, const char *storage, bool is_null) :
+      m_type(type), m_storage(storage), m_metadata(metadata), m_is_null(is_null)
+    {
+      if (!m_is_null){
+      m_size= calc_field_size((unsigned char)type,
+                              (const unsigned char*)storage,
+                              metadata);
+      }
+      //std::cout << "TYPE: " << type << " SIZE: " << m_size << std::endl;
+    };
 
     Value()
     {
