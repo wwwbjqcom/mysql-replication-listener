@@ -417,8 +417,10 @@ static void proto_event_packet_header(boost::asio::streambuf &event_src, Log_eve
 
 void Binlog_tcp_driver::handle_net_packet(const boost::system::error_code& err, std::size_t bytes_transferred)
 {
+  // std::cerr << "handle_net_packet bytes_transferred:" << bytes_transferred << std::endl;
   if (err)
   {
+    // std::cerr << "handle_net_packet was called with error" << std::endl;
     Binary_log_event * ev= create_incident_event(175, err.message().c_str(), m_binlog_offset);
     m_event_queue->push_front(ev);
     return;
@@ -426,6 +428,7 @@ void Binlog_tcp_driver::handle_net_packet(const boost::system::error_code& err, 
 
   if (bytes_transferred > MAX_PACKAGE_SIZE || bytes_transferred == 0)
   {
+    // std::cerr << "bytes_transferred (" << bytes_transferred << ") too big" << std::endl;
     std::ostringstream os;
     os << "Expected byte size to be between 0 and "
        << MAX_PACKAGE_SIZE
@@ -438,8 +441,9 @@ void Binlog_tcp_driver::handle_net_packet(const boost::system::error_code& err, 
   }
 
   //assert(m_waiting_event != 0);
-  //std::cerr << "Committing '"<< bytes_transferred << "' bytes to the event stream." << std::endl;
+  //std::cerr << "Committing '"<< bytes_transferred << "' bytes. size:" << m_event_stream_buffer.size() << std::endl;
   m_event_stream_buffer.commit(bytes_transferred);
+  //std::cerr << "Commit complete. size:" << m_event_stream_buffer.size() << std::endl;
   /*
     If the event object doesn't have an event length it means that the header
     hasn't been parsed. If the event stream also contains enough bytes
@@ -457,7 +461,7 @@ void Binlog_tcp_driver::handle_net_packet(const boost::system::error_code& err, 
     //std::cerr << " Size after: " << m_event_stream_buffer.size() << std::endl;
   }
 
-  //std::cerr << "Event length: " << m_waiting_event->header()->event_length << " and available payload size is " << m_event_stream_buffer.size()+LOG_EVENT_HEADER_SIZE-1 <<  std::endl;
+  //std::cerr << "Event length: " << m_waiting_event->event_length << " and available payload size is " << m_event_stream_buffer.size()+LOG_EVENT_HEADER_SIZE-1 <<  std::endl;
   if (m_waiting_event->event_length == m_event_stream_buffer.size() + LOG_EVENT_HEADER_SIZE - 1)
   {
     /*
@@ -516,11 +520,11 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
 
   if (m_waiting_event == 0)
   {
-    //std::cerr << "event_stream_buffer.size= " << m_event_stream_buffer.size() << std::endl;
     m_waiting_event= new Log_event_header();
-    m_event_packet=  boost::asio::buffer_cast<char *>(m_event_stream_buffer.prepare(packet_length));
     //assert(m_event_stream_buffer.size() == 0);
   }
+  //std::cerr << "event_stream_buffer.prepare:" << packet_length << std::endl;
+  m_event_packet=  boost::asio::buffer_cast<char *>(m_event_stream_buffer.prepare(packet_length));
 
   m_socket->async_read(boost::asio::buffer(m_event_packet, packet_length),
                           boost::bind(&Binlog_tcp_driver::handle_net_packet,
