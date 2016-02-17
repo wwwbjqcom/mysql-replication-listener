@@ -784,7 +784,7 @@ void Binlog_tcp_driver::start_event_loop()
 
 int Binlog_tcp_driver::connect()
 {
-  return connect(m_user, m_passwd, m_host, m_port);
+  return connect(m_user, m_passwd, m_host, m_port, m_binlog_file_name, m_binlog_offset);
 }
 
 /**
