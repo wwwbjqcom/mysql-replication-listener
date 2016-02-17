@@ -58,13 +58,7 @@ public:
     ~Binlog_tcp_driver()
     {
       disconnect();
-      m_io_service.post(boost::bind(&Binlog_tcp_driver::shutdown, this));
-      if (m_event_loop){
-        m_event_loop->join();
-        delete m_event_loop;
-      }
-        delete m_event_queue;
-        delete m_socket;
+      delete m_event_queue;
     }
 
     /**
@@ -119,6 +113,11 @@ private:
      *
      */
     void start_binlog_dump(const std::string &binlog_file_name, size_t offset);
+
+    /**
+     * Stop the event loop thread
+     */
+    void stop_binlog_dump();
 
     /**
      * Handles a completed mysql server package header and put a
