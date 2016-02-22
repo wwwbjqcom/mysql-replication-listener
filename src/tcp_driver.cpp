@@ -824,7 +824,7 @@ int Binlog_tcp_driver::disconnect()
     delete(event);
   }
   if (m_socket) {
-    disconnect_server(m_socket);
+    //disconnect_server(m_socket);
     m_socket->close();
   }
   m_socket= 0;
