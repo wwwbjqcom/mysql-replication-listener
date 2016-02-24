@@ -53,6 +53,16 @@ public:
     m_socket->close();
   }
 
+  void cancel()
+  {
+    m_socket->cancel();
+  }
+
+  boost::asio::io_service &get_io_service()
+  {
+    m_socket->get_io_service();
+  }
+
   bool is_ssl()
   {
     return m_ssl_flag;
