@@ -58,6 +58,17 @@ static int encrypt_password(boost::uint8_t *reply,   /* buffer at least EVP_MAX_
 static int hash_sha1(boost::uint8_t *output, ...);
 static int disconnect_server(Binlog_socket *binlog_socket);
 
+/**
+ * async_read with timeout.  read_handler will be called with error
+ * boost::errc::timed_out
+ */
+template <typename MutableBufferSequence, typename ReadHandler>
+static void async_read_with_timeout(
+              Binlog_socket *socket,
+              const MutableBufferSequence& buffers,
+              ReadHandler handler,
+              const boost::posix_time::time_duration &timeout = boost::posix_time::seconds(1));
+
     int Binlog_tcp_driver::connect(const std::string& user, const std::string& passwd,
                                    const std::string& host, long port,
                                    const std::string& binlog_filename, size_t offset)
@@ -1137,6 +1148,40 @@ int Binlog_tcp_driver::set_ssl_cipher(const std::string& cipher_list)
   m_opt_ssl_cipher= cipher_list;
   return ERR_OK;
 }
+
+static void handle_timeout(bool *triggered_flag, const boost::system::error_code &error)
+{
+  if (!error) {
+    *triggered_flag = true;
+  }
+}
+
+template <typename MutableBufferSequence, typename ReadHandler>
+void async_read_with_timeout(Binlog_socket *socket,
+                             const MutableBufferSequence& buffers,
+                             ReadHandler handler,
+                             const boost::posix_time::time_duration &timeout)
+{
+  bool timeout_triggered = false;
+
+  boost::asio::io_service &io_service = socket->get_io_service();
+
+  boost::asio::deadline_timer timer(io_service);
+  timer.expires_from_now(timeout);
+  timer.async_wait(boost::bind(&handle_timeout, &timeout_triggered, _1));
+
+  socket->async_read(buffers, handler);
+
+  while (io_service.run_one()) {
+    if (timeout_triggered) {
+      socket->cancel();
+    } else {
+      timer.cancel();
+    }
+  }
+  io_service.reset();
+}
+
 
 int disconnect_server(Binlog_socket *binlog_socket)
 {
