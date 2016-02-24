@@ -30,11 +30,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 
 #define MAX_PACKAGE_SIZE 0xffffff
 
-#define GET_NEXT_PACKET_HEADER   \
-   m_socket->async_read(boost::asio::buffer(m_net_header, 4), \
-     boost::bind(&Binlog_tcp_driver::handle_net_packet_header, this, \
-     boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)) \
-
 using boost::asio::ip::tcp;
 
 namespace mysql { namespace system {
