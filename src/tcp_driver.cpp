@@ -1140,7 +1140,6 @@ int Binlog_tcp_driver::set_ssl_cipher(const std::string& cipher_list)
 
 int disconnect_server(Binlog_socket *binlog_socket)
 {
-  std::cout << "disconnect_server()\n" << std::flush;
   boost::asio::streambuf server_messages;
 
   std::ostream command_request_stream(&server_messages);
@@ -1172,10 +1171,8 @@ int disconnect_server(Binlog_socket *binlog_socket)
   {
     struct st_ok_package ok_package;
     prot_parse_ok_message(cmd_response_stream, ok_package, packet_length);
-    std::cout << "disconnect ok\n" << std::flush;
   } else
   {
-    std::cout << "disconnect failed\n" << std::flush;
     struct st_error_package error_package;
     prot_parse_error_message(cmd_response_stream, error_package, packet_length);
     throw std::runtime_error("Error from server, code=" + boost::lexical_cast<std::string>(error_package.error_code) + ", message=\"" + error_package.message + "\"");
