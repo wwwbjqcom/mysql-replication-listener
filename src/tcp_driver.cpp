@@ -56,7 +56,6 @@ static int encrypt_password(boost::uint8_t *reply,   /* buffer at least EVP_MAX_
                             const boost::uint8_t *scramble_buff,
                             const char *pass);
 static int hash_sha1(boost::uint8_t *output, ...);
-static int disconnect_server(Binlog_socket *binlog_socket);
 
     int Binlog_tcp_driver::connect(const std::string& user, const std::string& passwd,
                                    const std::string& host, long port,
@@ -807,10 +806,8 @@ void Binlog_tcp_driver::disconnect()
     m_event_queue->pop_back(&event);
     delete(event);
   }
-  if (m_socket) {
-    disconnect_server(m_socket);
+  if (m_socket)
     m_socket->close();
-  }
   m_socket= 0;
 }
 
@@ -1129,51 +1126,6 @@ int Binlog_tcp_driver::set_ssl_ca(const std::string& filepath)
 int Binlog_tcp_driver::set_ssl_cipher(const std::string& cipher_list)
 {
   m_opt_ssl_cipher= cipher_list;
-  return ERR_OK;
-}
-
-int disconnect_server(Binlog_socket *binlog_socket)
-{
-  std::cout << "disconnect_server()\n" << std::flush;
-  boost::asio::streambuf server_messages;
-
-  std::ostream command_request_stream(&server_messages);
-
-  boost::uint8_t val_command = COM_QUIT;
-  Protocol_chunk<boost::uint8_t> prot_command(val_command);
-
-  command_request_stream << prot_command;
-
-  // Send request
-  boost::this_thread::sleep_for(boost::chrono::seconds(1));
-  write_request(binlog_socket, server_messages, binlog_socket->reset_and_increment_packet_number());
-  boost::this_thread::sleep_for(boost::chrono::seconds(1));
-
-  // Get Ok-package
-  unsigned long packet_length;
-  unsigned char packet_no;
-  packet_length=proto_get_one_package(binlog_socket, server_messages, &packet_no);
-
-  std::istream cmd_response_stream(&server_messages);
-
-  boost::uint8_t result_type;
-  Protocol_chunk<boost::uint8_t> prot_result_type(result_type);
-
-  cmd_response_stream >> prot_result_type;
-
-
-  if (result_type == 0)
-  {
-    struct st_ok_package ok_package;
-    prot_parse_ok_message(cmd_response_stream, ok_package, packet_length);
-    std::cout << "disconnect ok\n" << std::flush;
-  } else
-  {
-    std::cout << "disconnect failed\n" << std::flush;
-    struct st_error_package error_package;
-    prot_parse_error_message(cmd_response_stream, error_package, packet_length);
-    throw std::runtime_error("Error from server, code=" + boost::lexical_cast<std::string>(error_package.error_code) + ", message=\"" + error_package.message + "\"");
-  }
   return ERR_OK;
 }
 
