@@ -812,7 +812,7 @@ void Binlog_tcp_driver::reconnect()
   connect(m_user, m_passwd, m_host, m_port);
 }
 
-int Binlog_tcp_driver::disconnect()
+void Binlog_tcp_driver::disconnect()
 {
   stop_binlog_dump();
   Binary_log_event * event;
@@ -828,7 +828,6 @@ int Binlog_tcp_driver::disconnect()
     m_socket->close();
   }
   m_socket= 0;
-  return ERR_OK;
 }
 
 
@@ -892,7 +891,7 @@ int Binlog_tcp_driver::set_position(const std::string &str, unsigned long positi
     against the server. The binlog dump command is executed asynchronously
     in another thread.
   */
-
+  
   int result = -1;
   if (is_valid_position) {
     result = connect(m_user, m_passwd, m_host, m_port, str, position);

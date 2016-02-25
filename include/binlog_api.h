@@ -68,8 +68,6 @@ public:
 
   virtual int connect() { return 1; }
 
-  virtual int disconnect() { return 1; }
-
   virtual int wait_for_next_event(mysql::Binary_log_event **event) {
     return ERR_EOF;
   }
@@ -111,8 +109,6 @@ public:
   }
 
   int connect();
-
-  int disconnect();
 
   /**
    * Blocking attempt to get the next binlog event from the stream

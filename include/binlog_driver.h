@@ -46,10 +46,6 @@ public:
    */
   virtual int connect()= 0;
 
-  /**
-   * Disconnect the currently running binary log session
-   */
-  virtual int disconnect()= 0;
 
   /**
    * Blocking attempt to get the next binlog event from the stream

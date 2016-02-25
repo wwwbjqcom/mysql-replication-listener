@@ -67,12 +67,6 @@ public:
     int connect();
 
     /**
-     * Disconnet from the server.
-     * The event queue is emptied.
-     */
-    int disconnect();
-
-    /**
      * Blocking wait for the next binary log event to reach the client
      */
     int wait_for_next_event(mysql::Binary_log_event **event);
@@ -169,6 +163,13 @@ private:
      * Reconnect to the server by first calling disconnect and then connect.
      */
     void reconnect(void);
+
+    /**
+     * Disconnet from the server. The io service must have been stopped before
+     * this function is called.
+     * The event queue is emptied.
+     */
+    void disconnect(void);
 
     /**
      * Terminates the io service and sets the shudown flag.
