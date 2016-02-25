@@ -198,47 +198,15 @@ static Binary_log_driver *parse_mysql_url(const char *body, size_t len)
 
   /* Find the port number */
   unsigned long portno = 3306;
-  const char *portno_end = host_end;
-  if (*host_end == ':') {
-    char *end;
-    portno = strtoul(host_end + 1, &end, 10);
-    portno_end = end;
-  }
+  if (*host_end == ':')
+    portno = strtoul(host_end + 1, NULL, 10);
   std::string user_str = UriDecode(std::string(user, user_end - user));
   std::string pass_str = UriDecode(std::string(pass, pass_end - pass));
   std::string host_str = UriDecode(std::string(host, host_end - host));
 
-  std::string binlog_file("");
-  unsigned long binlog_offset = 4;
-
-  /* Find binlog parameters */
-  const char *query_end = strpbrk(portno_end, "?");
-  if (query_end == 0) {
-    // no query part
-    query_end = portno_end;
-  } else {
-    while (*query_end == '?' || *query_end == '&' || *query_end == ';')
-    {
-      const char *key = query_end + 1;
-      const char *key_end = strpbrk(key, "=");
-      if (key_end == 0) // key is missing the following '='
-        return 0;
-      std::string key_str = UriDecode(std::string(key, key_end - key));
-      const char *value = key_end + 1;
-      const char *value_end = strpbrk(value, "&;#");
-      if (value_end == 0)
-        value_end = body + len;
-      if (key_str.compare("binlog_file") == 0)
-        binlog_file.assign(value, value_end - value);
-      else if (key_str.compare("binlog_offset") == 0)
-        binlog_offset = strtoul(value, NULL, 10);
-    }
-  }
-
   /* Host name is now the string [host, port-1) if port != NULL and [host, EOS) otherwise. */
   /* Port number is stored in portno, either the default, or a parsed one */
-  return new Binlog_tcp_driver(user_str, pass_str, host_str, portno,
-                               binlog_file, binlog_offset);
+  return new Binlog_tcp_driver(user_str, pass_str, host_str, portno);
 }
 
 
