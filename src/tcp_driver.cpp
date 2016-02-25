@@ -392,6 +392,21 @@ static int disconnect_server(Binlog_socket *binlog_socket);
 
 }
 
+  void Binlog_tcp_driver::stop_binlog_dump()
+{
+  /*
+    By posting to the io service we guarantee that the operations are
+    executed in the same thread as the io_service is running in.
+  */
+  m_io_service.post(boost::bind(&Binlog_tcp_driver::shutdown, this));
+  if (m_event_loop)
+  {
+    m_event_loop->join();
+    delete(m_event_loop);
+    m_event_loop= 0;
+  }
+}
+
 /**
  Helper function used to extract the event header from a memory block
  */
@@ -799,6 +814,7 @@ void Binlog_tcp_driver::reconnect()
 
 void Binlog_tcp_driver::disconnect()
 {
+  stop_binlog_dump();
   Binary_log_event * event;
   m_waiting_event= 0;
   m_event_stream_buffer.consume(m_event_stream_buffer.in_avail());
@@ -828,17 +844,6 @@ int Binlog_tcp_driver::set_position(const std::string &str, unsigned long positi
     Otherwise, a temporary connection for the validation lets the existing
     one hang.
   */
-  /*
-    By posting to the io service we guarantee that the operations are
-    executed in the same thread as the io_service is running in.
-  */
-  m_io_service.post(boost::bind(&Binlog_tcp_driver::shutdown, this));
-  if (m_event_loop)
-  {
-    m_event_loop->join();
-    delete(m_event_loop);
-  }
-  m_event_loop= 0;
   disconnect();
 
   /*
