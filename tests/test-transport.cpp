@@ -36,12 +36,16 @@ protected:
 
 void CheckTcpValues(Binlog_tcp_driver *tcp,
                     const char *user, const char *passwd,
-                    const char *host, unsigned long port)
+                    const char *host, unsigned long port,
+                    const char *binlog_file_name,
+                    unsigned long binlog_offset)
 {
   EXPECT_EQ(tcp->port(), port);
   EXPECT_EQ(tcp->host(), host);
   EXPECT_EQ(tcp->user(), user);
   EXPECT_EQ(tcp->password(), passwd);
+  EXPECT_EQ(tcp->binlog_file_name(), binlog_file_name);
+  EXPECT_EQ(tcp->binlog_offset(), binlog_offset);
 }
 
 
@@ -50,13 +54,15 @@ void CheckTcpValues(Binlog_tcp_driver *tcp,
  */
 void TestTcpTransport(const char *uri,
                       const char *user, const char *passwd,
-                      const char *host, unsigned long port)
+                      const char *host, unsigned long port,
+                      const char *binlog_file_name = "",
+                      unsigned long binlog_offset = 4)
 {
   Binary_log_driver *drv= create_transport(uri);
   EXPECT_TRUE(drv);
   Binlog_tcp_driver* tcp = dynamic_cast<Binlog_tcp_driver*>(drv);
   EXPECT_TRUE(tcp);
-  CheckTcpValues(tcp, user, passwd, host, port);
+  CheckTcpValues(tcp, user, passwd, host, port, binlog_file_name, binlog_offset);
   delete drv;
 }
 
@@ -91,6 +97,33 @@ TEST_F(TestTransport, CreateTransport_TcpIp) {
                    "nosuchuser", "magic", "example.com", 3306);
   TestTcpTransport("mysql://somebody@128.0.0.1",
                    "somebody", "", "128.0.0.1", 3306);
+  TestTcpTransport("mysql://somebody@128.0.0.1?binlog_file=mysql-binlog.000001&binlog_offset=483928",
+                   "somebody", "", "128.0.0.1", 3306, "mysql-binlog.000001", 483928);
+  TestTcpTransport("mysql://somebody:magic@128.0.0.1:3306?binlog_file=mysql-binlog.000001&binlog_offset=483928",
+                   "somebody", "magic", "128.0.0.1", 3306, "mysql-binlog.000001", 483928);
+  TestTcpTransport("mysql://somebody:magic@128.0.0.1:3306?binlog_offset=483928&binlog_file=mysql-binlog.000001",
+                   "somebody", "magic", "128.0.0.1", 3306, "mysql-binlog.000001", 483928);
+  TestTcpTransport("mysql://somebody:magic@128.0.0.1:3306?binlog_offset=483928",
+                   "somebody", "magic", "128.0.0.1", 3306, "", 483928);
+  TestTcpTransport("mysql://somebody:magic@128.0.0.1:3306?binlog_file=mysql-binlog.000001",
+                   "somebody", "magic", "128.0.0.1", 3306, "mysql-binlog.000001", 4);
+  TestTcpTransport("mysql://somebody:magic@128.0.0.1:3306?unknown_key=1",
+                   "somebody", "magic", "128.0.0.1", 3306, "", 4);
+  // It accpets a query not starting with ? even though it's not a correct syntax.
+  TestTcpTransport("mysql://somebody:magic@128.0.0.1:3306&binlog_file=mysql-binlog.000001&binlog_offset=483928",
+                   "somebody", "magic", "128.0.0.1", 3306, "mysql-binlog.000001", 483928);
+  TestTcpTransport("mysql://somebody:magic@128.0.0.1:3306;binlog_file=mysql-binlog.000001;binlog_offset=483928",
+                   "somebody", "magic", "128.0.0.1", 3306, "mysql-binlog.000001", 483928);
+  TestTcpTransport("mysql://somebody:magic@128.0.0.1:3306?unknown_param=mysql-binlog.000001&binlog_offset=483928",
+                   "somebody", "magic", "128.0.0.1", 3306, "", 483928);
+  TestTcpTransport("mysql://somebody@128.0.0.1:3306?binlog_file=mysql-binlog.000001&binlog_offset=483928#test",
+                   "somebody", "", "128.0.0.1", 3306, "mysql-binlog.000001", 483928);
+  TestTcpTransport("mysql://somebody@128.0.0.1:3306?binlog_file=mysql-binlog.000001#test",
+                   "somebody", "", "128.0.0.1", 3306, "mysql-binlog.000001", 4);
+  TestTcpTransport("mysql://somebody@128.0.0.1:3306#test",
+                   "somebody", "", "128.0.0.1", 3306, "", 4);
+  TestTcpTransport("mysql://somebody@128.0.0.1#test",
+                   "somebody", "", "128.0.0.1", 3306, "", 4);
 
   // Here are tests for bad URIs
 
