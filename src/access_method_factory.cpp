@@ -240,8 +240,8 @@ static Binary_log_driver *parse_mysql_url(const char *body, size_t len)
         query_end = end;
         // std::cout << "binlog_offset:"  << binlog_offset << std::endl << std::flush;
       } else {
-        // ignore the key/value
-        query_end = value_end;
+        // Play safe and don't accept unsupported parameters to detect typo
+        return 0;
       }
     }
   }

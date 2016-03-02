@@ -107,15 +107,11 @@ TEST_F(TestTransport, CreateTransport_TcpIp) {
                    "somebody", "magic", "128.0.0.1", 3306, "", 483928);
   TestTcpTransport("mysql://somebody:magic@128.0.0.1:3306?binlog_file=mysql-binlog.000001",
                    "somebody", "magic", "128.0.0.1", 3306, "mysql-binlog.000001", 4);
-  TestTcpTransport("mysql://somebody:magic@128.0.0.1:3306?unknown_key=1",
-                   "somebody", "magic", "128.0.0.1", 3306, "", 4);
   // It accpets a query not starting with ? even though it's not a correct syntax.
   TestTcpTransport("mysql://somebody:magic@128.0.0.1:3306&binlog_file=mysql-binlog.000001&binlog_offset=483928",
                    "somebody", "magic", "128.0.0.1", 3306, "mysql-binlog.000001", 483928);
   TestTcpTransport("mysql://somebody:magic@128.0.0.1:3306;binlog_file=mysql-binlog.000001;binlog_offset=483928",
                    "somebody", "magic", "128.0.0.1", 3306, "mysql-binlog.000001", 483928);
-  TestTcpTransport("mysql://somebody:magic@128.0.0.1:3306?unknown_param=mysql-binlog.000001&binlog_offset=483928",
-                   "somebody", "magic", "128.0.0.1", 3306, "", 483928);
   TestTcpTransport("mysql://somebody@128.0.0.1:3306?binlog_file=mysql-binlog.000001&binlog_offset=483928#test",
                    "somebody", "", "128.0.0.1", 3306, "mysql-binlog.000001", 483928);
   TestTcpTransport("mysql://somebody@128.0.0.1:3306?binlog_file=mysql-binlog.000001#test",
@@ -135,6 +131,11 @@ TEST_F(TestTransport, CreateTransport_TcpIp) {
   EXPECT_FALSE(create_transport("mysql://somebody@:99999"));
   EXPECT_FALSE(create_transport("mysql://somebody"));
   EXPECT_FALSE(create_transport("mysql://somebody:xyzzy"));
+
+
+  // Unsupported query parameter
+  EXPECT_FALSE(create_transport("mysql://somebody:magic@128.0.0.1:3306?binlog_file_name=mysql-binlog.000001&binlog_offset=483928"));
+  EXPECT_FALSE(create_transport("mysql://somebody:magic@128.0.0.1:3306?binlog_position=4"));
 }
 
 TEST_F(TestTransport, CreateTransport_File) {
