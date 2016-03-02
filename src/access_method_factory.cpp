@@ -187,13 +187,14 @@ static Binary_log_driver *parse_mysql_url(const char *body, size_t len)
   /* Find the host name, which is mandatory */
   // Skip the '@', if there is one
   const char *host = *pass_end == '@' ? pass_end + 1 : pass_end;
-  const char *host_end = strchr(host, ':');
+  const char *host_end = strpbrk(host, ":?&;#");
   if (host == host_end)
     return 0;                                 // No hostname was found
   /* If no ':' was found there is no port, so the host end at the end
    * of the string */
-  if (host_end == 0)
+  if (host_end == 0) {
     host_end = body + len;
+  }
   assert(host_end - host >= 1);              // There has to be a host
 
   /* Find the port number */
@@ -212,7 +213,7 @@ static Binary_log_driver *parse_mysql_url(const char *body, size_t len)
   unsigned long binlog_offset = 4;
 
   /* Find binlog parameters */
-  const char *query_end = strpbrk(portno_end, "?");
+  const char *query_end = strpbrk(portno_end, "?&;");
   if (query_end == 0) {
     // no query part
     query_end = portno_end;
@@ -226,12 +227,22 @@ static Binary_log_driver *parse_mysql_url(const char *body, size_t len)
       std::string key_str = UriDecode(std::string(key, key_end - key));
       const char *value = key_end + 1;
       const char *value_end = strpbrk(value, "&;#");
-      if (value_end == 0)
+      if (value_end == 0) {
         value_end = body + len;
-      if (key_str.compare("binlog_file") == 0)
-        binlog_file.assign(value, value_end - value);
-      else if (key_str.compare("binlog_offset") == 0)
-        binlog_offset = strtoul(value, NULL, 10);
+      }
+      if (key_str.compare("binlog_file") == 0) {
+        binlog_file = UriDecode(std::string(value, value_end - value));
+        // std::cout << "binlog_file:" << binlog_file << std::endl << std::flush;
+        query_end = value_end;
+      } else if (key_str.compare("binlog_offset") == 0) {
+        char *end;
+        binlog_offset = strtoul(value, &end, 10);
+        query_end = end;
+        // std::cout << "binlog_offset:"  << binlog_offset << std::endl << std::flush;
+      } else {
+        // Play safe and don't accept unsupported parameters to detect typo
+        return 0;
+      }
     }
   }
 

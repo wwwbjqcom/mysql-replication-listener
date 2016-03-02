@@ -99,6 +99,8 @@ public:
 
   Binary_log_event* parse_event(std::istream &sbuff, Log_event_header *header);
 
+  const std::string& binlog_file_name() { return m_binlog_file_name; }
+  unsigned long binlog_offset() { return m_binlog_offset; }
 protected:
   /**
    * Used each time the client reconnects to the server to specify an
