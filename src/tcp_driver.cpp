@@ -772,53 +772,13 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
   }
 }
 
-enum TimeoutState { triggered, canceled, untouched };
-
-static void handle_timeout(TimeoutState *triggered_flag, const boost::system::error_code &error)
-{
-  if (!error) {
-    std::cout << "timeout triggered\n" << std::flush;
-    *triggered_flag = triggered;
-  } else {
-    *triggered_flag = canceled;
-    std::cout << "timeout cancelled\n" << std::flush;
-  }
-}
-
 void Binlog_tcp_driver::start_event_loop()
 {
   while (true)
   {
     try {
       boost::system::error_code err;
-      //int executed_jobs=m_io_service.run(err);
-
-      boost::asio::deadline_timer timer(m_io_service);
-
-      TimeoutState timeout_triggered = untouched;
-      timer.expires_from_now(boost::posix_time::seconds(30));
-      timer.async_wait(boost::bind(&handle_timeout, &timeout_triggered, _1));
-
-      while (m_io_service.run_one()) {
-        std::cout << "run_one() returned something\n" << std::flush;
-        switch (timeout_triggered) {
-        case triggered:
-        case canceled:
-          if (m_shutdown) {
-            std::cout << "timeout happened during shutdown.\n" << std::flush;
-            m_event_queue->push_front(0); // push NULL to indicate the end of events
-          } else {
-            std::cout << "timeout happened.\n" << std::flush;
-            timeout_triggered = untouched;
-            timer.expires_from_now(boost::posix_time::seconds(30));
-            timer.async_wait(boost::bind(&handle_timeout, &timeout_triggered, _1));
-          }
-          break;
-        default:
-          std::cout << "run_one() returned for something other than timeout\n" << std::flush;
-          break;
-        }
-      }
+      int executed_jobs=m_io_service.run(err);
 
       std::cout << "event loop run completed\n" << std::flush;
       if (err)
@@ -1197,7 +1157,6 @@ int Binlog_tcp_driver::set_ssl_cipher(const std::string& cipher_list)
   m_opt_ssl_cipher= cipher_list;
   return ERR_OK;
 }
-
 
 int disconnect_server(Binlog_socket *binlog_socket)
 {
