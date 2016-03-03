@@ -47,7 +47,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 #define GET_NEXT_PACKET_HEADER   \
    m_socket->async_read(boost::asio::buffer(m_net_header, 4), \
      boost::bind(&Binlog_tcp_driver::handle_net_packet_header, this, \
-     boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)) \
+       boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)) \
 
 using boost::asio::ip::tcp;
 using namespace mysql::system;
@@ -62,17 +62,6 @@ static int encrypt_password(boost::uint8_t *reply,   /* buffer at least EVP_MAX_
                             const char *pass);
 static int hash_sha1(boost::uint8_t *output, ...);
 static int disconnect_server(Binlog_socket *binlog_socket);
-
-/**
- * async_read with timeout.  read_handler will be called with error
- * boost::errc::timed_out
- */
-template <typename MutableBufferSequence, typename ReadHandler>
-static void async_read_with_timeout(
-              Binlog_socket *socket,
-              const MutableBufferSequence& buffers,
-              ReadHandler handler,
-              const boost::posix_time::time_duration &timeout = boost::posix_time::seconds(1));
 
     int Binlog_tcp_driver::connect(const std::string& user, const std::string& passwd,
                                    const std::string& host, long port,
@@ -410,6 +399,7 @@ static void async_read_with_timeout(
 
   void Binlog_tcp_driver::stop_binlog_dump()
 {
+  std::cout << "stop_binlog_dump()\n" << std::flush;
   /*
     By posting to the io service we guarantee that the operations are
     executed in the same thread as the io_service is running in.
@@ -417,8 +407,10 @@ static void async_read_with_timeout(
   m_io_service.post(boost::bind(&Binlog_tcp_driver::shutdown, this));
   if (m_event_loop)
   {
+    std::cout << "stop_binlog_dump() about to join m_event_loop\n" << std::flush;
     m_event_loop->join();
     delete(m_event_loop);
+    std::cout << "stop_binlog_dump() deleted m_event_loop\n" << std::flush;
     m_event_loop= 0;
   }
 }
@@ -449,7 +441,7 @@ static void proto_event_packet_header(boost::asio::streambuf &event_src, Log_eve
 
 void Binlog_tcp_driver::handle_net_packet(const boost::system::error_code& err, std::size_t bytes_transferred)
 {
-  // std::cerr << "handle_net_packet bytes_transferred:" << bytes_transferred << std::endl;
+  std::cerr << "handle_net_packet bytes_transferred:" << bytes_transferred << std::endl;
   if (err)
   {
     // std::cerr << "handle_net_packet was called with error" << std::endl;
@@ -772,7 +764,25 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
   if (event_ptr)
     *event_ptr= 0;
   m_event_queue->pop_back(event_ptr);
-  return 0;
+  if (*event_ptr == 0) {
+    std::cout << "got the last event\n" << std::flush;
+    return ERR_EOF;
+  } else {
+    return 0;
+  }
+}
+
+enum TimeoutState { triggered, canceled, untouched };
+
+static void handle_timeout(TimeoutState *triggered_flag, const boost::system::error_code &error)
+{
+  if (!error) {
+    std::cout << "timeout triggered\n" << std::flush;
+    *triggered_flag = triggered;
+  } else {
+    *triggered_flag = canceled;
+    std::cout << "timeout cancelled\n" << std::flush;
+  }
 }
 
 void Binlog_tcp_driver::start_event_loop()
@@ -781,10 +791,40 @@ void Binlog_tcp_driver::start_event_loop()
   {
     try {
       boost::system::error_code err;
-      int executed_jobs=m_io_service.run(err);
+      //int executed_jobs=m_io_service.run(err);
+
+      boost::asio::deadline_timer timer(m_io_service);
+
+      TimeoutState timeout_triggered = untouched;
+      timer.expires_from_now(boost::posix_time::seconds(30));
+      timer.async_wait(boost::bind(&handle_timeout, &timeout_triggered, _1));
+
+      while (m_io_service.run_one()) {
+        std::cout << "run_one() returned something\n" << std::flush;
+        switch (timeout_triggered) {
+        case triggered:
+        case canceled:
+          if (m_shutdown) {
+            std::cout << "timeout happened during shutdown.\n" << std::flush;
+            m_event_queue->push_front(0); // push NULL to indicate the end of events
+          } else {
+            std::cout << "timeout happened.\n" << std::flush;
+            timeout_triggered = untouched;
+            timer.expires_from_now(boost::posix_time::seconds(30));
+            timer.async_wait(boost::bind(&handle_timeout, &timeout_triggered, _1));
+          }
+          break;
+        default:
+          std::cout << "run_one() returned for something other than timeout\n" << std::flush;
+          break;
+        }
+      }
+
+      std::cout << "event loop run completed\n" << std::flush;
       if (err)
       {
         // TODO what error appear here?
+        std::cout << "error happened in the event loop\n" << std::flush;
       }
 
       /*
@@ -801,6 +841,7 @@ void Binlog_tcp_driver::start_event_loop()
       */
       if (m_shutdown)
       {
+        std::cout << "event loop detected shutdown\n" << std::flush;
         m_shutdown= false;
         break;
       }
@@ -811,6 +852,7 @@ void Binlog_tcp_driver::start_event_loop()
       std::cerr << "error in the event loop: " << e.what() << "\n";
     }
   }
+  std::cout << "event loop completed\n" << std::flush;
 
 }
 
@@ -830,6 +872,9 @@ void Binlog_tcp_driver::reconnect()
 
 int Binlog_tcp_driver::disconnect()
 {
+  if (m_socket == 0) {
+    return ERR_OK;
+  }
   stop_binlog_dump();
   Binary_log_event * event;
   m_waiting_event= 0;
@@ -839,10 +884,8 @@ int Binlog_tcp_driver::disconnect()
     m_event_queue->pop_back(&event);
     delete(event);
   }
-  if (m_socket) {
-    //disconnect_server(m_socket);
-    m_socket->close();
-  }
+  //disconnect_server(m_socket);
+  m_socket->close();
   m_socket= 0;
   return ERR_OK;
 }
@@ -850,6 +893,7 @@ int Binlog_tcp_driver::disconnect()
 
 void Binlog_tcp_driver::shutdown(void)
 {
+  std::cout << "shutdown called\n" << std::flush;
   m_shutdown= true;
   m_io_service.stop();
 }
@@ -1152,39 +1196,6 @@ int Binlog_tcp_driver::set_ssl_cipher(const std::string& cipher_list)
 {
   m_opt_ssl_cipher= cipher_list;
   return ERR_OK;
-}
-
-static void handle_timeout(bool *triggered_flag, const boost::system::error_code &error)
-{
-  if (!error) {
-    *triggered_flag = true;
-  }
-}
-
-template <typename MutableBufferSequence, typename ReadHandler>
-void async_read_with_timeout(Binlog_socket *socket,
-                             const MutableBufferSequence& buffers,
-                             ReadHandler handler,
-                             const boost::posix_time::time_duration &timeout)
-{
-  bool timeout_triggered = false;
-
-  boost::asio::io_service &io_service = socket->get_io_service();
-
-  boost::asio::deadline_timer timer(io_service);
-  timer.expires_from_now(timeout);
-  timer.async_wait(boost::bind(&handle_timeout, &timeout_triggered, _1));
-
-  socket->async_read(buffers, handler);
-
-  while (io_service.run_one()) {
-    if (timeout_triggered) {
-      socket->cancel();
-    } else {
-      timer.cancel();
-    }
-  }
-  io_service.reset();
 }
 
 
