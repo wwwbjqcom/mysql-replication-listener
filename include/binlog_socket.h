@@ -3,6 +3,7 @@
 
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
+#include <iostream>
 
 using boost::asio::ip::tcp;
 
@@ -50,17 +51,9 @@ public:
 
   void close()
   {
+    std::cout << "shutdown and close\n" << std::flush;
+    m_socket->shutdown(tcp::socket::shutdown_both);
     m_socket->close();
-  }
-
-  void cancel()
-  {
-    m_socket->cancel();
-  }
-
-  boost::asio::io_service &get_io_service()
-  {
-    m_socket->get_io_service();
   }
 
   bool is_ssl()
