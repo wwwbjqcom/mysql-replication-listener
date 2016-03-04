@@ -3,7 +3,6 @@
 
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
-#include <iostream>
 
 using boost::asio::ip::tcp;
 
@@ -51,7 +50,6 @@ public:
 
   void close()
   {
-    std::cout << "shutdown and close\n" << std::flush;
     m_socket->shutdown(tcp::socket::shutdown_both);
     m_socket->close();
   }

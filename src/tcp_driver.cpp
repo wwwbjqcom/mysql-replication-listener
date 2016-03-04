@@ -61,7 +61,6 @@ static int encrypt_password(boost::uint8_t *reply,   /* buffer at least EVP_MAX_
                             const boost::uint8_t *scramble_buff,
                             const char *pass);
 static int hash_sha1(boost::uint8_t *output, ...);
-static int disconnect_server(Binlog_socket *binlog_socket);
 
     int Binlog_tcp_driver::connect(const std::string& user, const std::string& passwd,
                                    const std::string& host, long port,
@@ -399,7 +398,6 @@ static int disconnect_server(Binlog_socket *binlog_socket);
 
   void Binlog_tcp_driver::stop_binlog_dump()
 {
-  std::cout << "stop_binlog_dump()\n" << std::flush;
   /*
     By posting to the io service we guarantee that the operations are
     executed in the same thread as the io_service is running in.
@@ -407,10 +405,8 @@ static int disconnect_server(Binlog_socket *binlog_socket);
   m_io_service.post(boost::bind(&Binlog_tcp_driver::shutdown, this));
   if (m_event_loop)
   {
-    std::cout << "stop_binlog_dump() about to join m_event_loop\n" << std::flush;
     m_event_loop->join();
     delete(m_event_loop);
-    std::cout << "stop_binlog_dump() deleted m_event_loop\n" << std::flush;
     m_event_loop= 0;
   }
 }
@@ -441,7 +437,7 @@ static void proto_event_packet_header(boost::asio::streambuf &event_src, Log_eve
 
 void Binlog_tcp_driver::handle_net_packet(const boost::system::error_code& err, std::size_t bytes_transferred)
 {
-  std::cerr << "handle_net_packet bytes_transferred:" << bytes_transferred << std::endl;
+  // std::cerr << "handle_net_packet bytes_transferred:" << bytes_transferred << std::endl;
   if (err)
   {
     // std::cerr << "handle_net_packet was called with error" << std::endl;
@@ -764,12 +760,7 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
   if (event_ptr)
     *event_ptr= 0;
   m_event_queue->pop_back(event_ptr);
-  if (*event_ptr == 0) {
-    std::cout << "got the last event\n" << std::flush;
-    return ERR_EOF;
-  } else {
-    return 0;
-  }
+  return 0;
 }
 
 void Binlog_tcp_driver::start_event_loop()
@@ -779,12 +770,9 @@ void Binlog_tcp_driver::start_event_loop()
     try {
       boost::system::error_code err;
       int executed_jobs=m_io_service.run(err);
-
-      std::cout << "event loop run completed\n" << std::flush;
       if (err)
       {
         // TODO what error appear here?
-        std::cout << "error happened in the event loop\n" << std::flush;
       }
 
       /*
@@ -801,7 +789,6 @@ void Binlog_tcp_driver::start_event_loop()
       */
       if (m_shutdown)
       {
-        std::cout << "event loop detected shutdown\n" << std::flush;
         m_shutdown= false;
         break;
       }
@@ -812,7 +799,6 @@ void Binlog_tcp_driver::start_event_loop()
       std::cerr << "error in the event loop: " << e.what() << "\n";
     }
   }
-  std::cout << "event loop completed\n" << std::flush;
 
 }
 
@@ -844,7 +830,6 @@ int Binlog_tcp_driver::disconnect()
     m_event_queue->pop_back(&event);
     delete(event);
   }
-  //disconnect_server(m_socket);
   m_socket->close();
   m_socket= 0;
   return ERR_OK;
@@ -853,7 +838,6 @@ int Binlog_tcp_driver::disconnect()
 
 void Binlog_tcp_driver::shutdown(void)
 {
-  std::cout << "shutdown called\n" << std::flush;
   m_shutdown= true;
   m_io_service.stop();
 }
@@ -1155,48 +1139,6 @@ int Binlog_tcp_driver::set_ssl_ca(const std::string& filepath)
 int Binlog_tcp_driver::set_ssl_cipher(const std::string& cipher_list)
 {
   m_opt_ssl_cipher= cipher_list;
-  return ERR_OK;
-}
-
-int disconnect_server(Binlog_socket *binlog_socket)
-{
-  boost::asio::streambuf server_messages;
-
-  std::ostream command_request_stream(&server_messages);
-
-  boost::uint8_t val_command = COM_QUIT;
-  Protocol_chunk<boost::uint8_t> prot_command(val_command);
-
-  command_request_stream << prot_command;
-
-  // Send request
-  boost::this_thread::sleep_for(boost::chrono::seconds(1));
-  write_request(binlog_socket, server_messages, binlog_socket->reset_and_increment_packet_number());
-  boost::this_thread::sleep_for(boost::chrono::seconds(1));
-
-  // Get Ok-package
-  unsigned long packet_length;
-  unsigned char packet_no;
-  packet_length=proto_get_one_package(binlog_socket, server_messages, &packet_no);
-
-  std::istream cmd_response_stream(&server_messages);
-
-  boost::uint8_t result_type;
-  Protocol_chunk<boost::uint8_t> prot_result_type(result_type);
-
-  cmd_response_stream >> prot_result_type;
-
-
-  if (result_type == 0)
-  {
-    struct st_ok_package ok_package;
-    prot_parse_ok_message(cmd_response_stream, ok_package, packet_length);
-  } else
-  {
-    struct st_error_package error_package;
-    prot_parse_error_message(cmd_response_stream, error_package, packet_length);
-    throw std::runtime_error("Error from server, code=" + boost::lexical_cast<std::string>(error_package.error_code) + ", message=\"" + error_package.message + "\"");
-  }
   return ERR_OK;
 }
 
