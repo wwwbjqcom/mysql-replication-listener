@@ -153,7 +153,7 @@ static int hash_sha1(boost::uint8_t *output, ...);
     boost::system::error_code ec;
     boost::asio::ip::address addr = boost::asio::ip::address::from_string(host, ec);
     if (ec) {
-      delete(binlog_socket);
+      delete binlog_socket;
       throw std::runtime_error("Host `" + host + "` not found");
     }
     tcp::endpoint ep(addr, port);
@@ -176,7 +176,7 @@ static int hash_sha1(boost::uint8_t *output, ...);
 
   if (error)
   {
-    delete(binlog_socket);
+    delete binlog_socket;
     throw std::runtime_error("Boost error: " + error.message());
   }
 
@@ -263,7 +263,7 @@ static int hash_sha1(boost::uint8_t *output, ...);
   unsigned char packet_no;
   if (proto_read_package_header(binlog_socket, server_messages, &packet_length, &packet_no))
   {
-    delete(binlog_socket);
+    delete binlog_socket;
     throw std::runtime_error("Invalid package header");
   }
 
@@ -294,7 +294,7 @@ static int hash_sha1(boost::uint8_t *output, ...);
    * Authenticate
    */
   if (authenticate(binlog_socket, user, passwd, handshake_package)){
-    delete(binlog_socket);
+    delete binlog_socket;
     throw std::runtime_error("Authentication failed.");
   }
 
@@ -406,7 +406,7 @@ static int hash_sha1(boost::uint8_t *output, ...);
   if (m_event_loop)
   {
     m_event_loop->join();
-    delete(m_event_loop);
+    delete m_event_loop;
     m_event_loop= 0;
   }
 }
@@ -828,9 +828,10 @@ int Binlog_tcp_driver::disconnect()
   while(m_event_queue->has_unread())
   {
     m_event_queue->pop_back(&event);
-    delete(event);
+    delete event;
   }
   m_socket->close();
+  delete m_socket;
   m_socket= 0;
   return ERR_OK;
 }
