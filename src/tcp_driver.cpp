@@ -396,21 +396,6 @@ static int hash_sha1(boost::uint8_t *output, ...);
 
 }
 
-  void Binlog_tcp_driver::stop_binlog_dump()
-{
-  /*
-    By posting to the io service we guarantee that the operations are
-    executed in the same thread as the io_service is running in.
-  */
-  m_io_service.post(boost::bind(&Binlog_tcp_driver::shutdown, this));
-  if (m_event_loop)
-  {
-    m_event_loop->join();
-    delete m_event_loop;
-    m_event_loop= 0;
-  }
-}
-
 /**
  Helper function used to extract the event header from a memory block
  */
@@ -755,6 +740,9 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
 
     int Binlog_tcp_driver::wait_for_next_event(mysql::Binary_log_event **event_ptr)
 {
+  if (m_shutdown) {
+    return ERR_EOF;
+  }
   // poll for new event until one event is found.
   // return the event
   if (event_ptr)
@@ -821,15 +809,38 @@ int Binlog_tcp_driver::disconnect()
   if (m_socket == 0) {
     return ERR_OK;
   }
-  stop_binlog_dump();
+  /*
+    By posting to the io service we guarantee that the operations are
+    executed in the same thread as the io_service is running in.
+  */
+  // 1. Post shutdown, which stops the io_service
+  m_io_service.post(boost::bind(&Binlog_tcp_driver::shutdown, this));
   Binary_log_event * event;
   m_waiting_event= 0;
-  m_event_stream_buffer.consume(m_event_stream_buffer.in_avail());
+  // 2. Consume events in the queue.  Without this, a net packet handler may
+  //    get stuck waiting for the full buffer to have an empty slot.
   while(m_event_queue->has_unread())
   {
     m_event_queue->pop_back(&event);
     delete event;
   }
+  // 3. Wait for the event loop thread to stop
+  if (m_event_loop)
+  {
+    m_event_loop->join();
+    delete m_event_loop;
+    m_event_loop= 0;
+  }
+  // 4. Consume the stream buffer
+  m_event_stream_buffer.consume(m_event_stream_buffer.in_avail());
+  // 5. Consume the event queue again to delete event(s) which may have
+  //    been pushed while waiting for the event loop to finish.
+  while(m_event_queue->has_unread())
+  {
+    m_event_queue->pop_back(&event);
+    delete event;
+  }
+  // 6. Clean up the socket
   m_socket->close();
   delete m_socket;
   m_socket= 0;
