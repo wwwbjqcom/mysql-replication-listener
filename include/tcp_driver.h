@@ -182,6 +182,11 @@ private:
                                                  const std::string &host,
                                                  long port);
 
+    /**
+     * Drain events in the event queue
+     */
+    void drain_event_queue();
+
 
     boost::thread *m_event_loop;
     boost::asio::io_service m_io_service;
@@ -234,6 +239,7 @@ private:
      * A ring buffer used to dispatch aggregated events to the user application
      */
     bounded_buffer<Binary_log_event *> *m_event_queue;
+    boost::mutex m_event_queue_pop_back_mutex;
 
     std::string m_user;
     std::string m_host;

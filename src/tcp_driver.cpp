@@ -740,6 +740,8 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
 
     int Binlog_tcp_driver::wait_for_next_event(mysql::Binary_log_event **event_ptr)
 {
+  boost::mutex::scoped_lock lock(m_event_queue_pop_back_mutex);
+
   if (m_shutdown) {
     return ERR_EOF;
   }
@@ -748,7 +750,11 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
   if (event_ptr)
     *event_ptr= 0;
   m_event_queue->pop_back(event_ptr);
-  return 0;
+  if (event_ptr && *event_ptr == 0) {
+    return ERR_EOF;
+  } else {
+    return 0;
+  }
 }
 
 void Binlog_tcp_driver::start_event_loop()
@@ -817,30 +823,19 @@ int Binlog_tcp_driver::disconnect()
   m_io_service.post(boost::bind(&Binlog_tcp_driver::shutdown, this));
   Binary_log_event * event;
   m_waiting_event= 0;
-  // 2. Consume events in the queue.  Without this, a net packet handler may
-  //    get stuck waiting for the full buffer to have an empty slot.
-  while(m_event_queue->has_unread())
-  {
-    m_event_queue->pop_back(&event);
-    delete event;
-  }
-  // 3. Wait for the event loop thread to stop
+  // 2. Wait for the event loop thread to stop
   if (m_event_loop)
   {
     m_event_loop->join();
     delete m_event_loop;
     m_event_loop= 0;
   }
-  // 4. Consume the stream buffer
+  // 3. Consume the stream buffer
   m_event_stream_buffer.consume(m_event_stream_buffer.in_avail());
-  // 5. Consume the event queue again to delete event(s) which may have
+  // 4. Consume the event queue to delete event(s) which may have
   //    been pushed while waiting for the event loop to finish.
-  while(m_event_queue->has_unread())
-  {
-    m_event_queue->pop_back(&event);
-    delete event;
-  }
-  // 6. Clean up the socket
+  drain_event_queue();
+  // 5. Clean up the socket
   m_socket->close();
   delete m_socket;
   m_socket= 0;
@@ -852,6 +847,14 @@ void Binlog_tcp_driver::shutdown(void)
 {
   m_shutdown= true;
   m_io_service.stop();
+
+  if (!m_event_queue->has_unread()) {
+    m_event_queue->push_front(0);  // push EOF event
+  }
+
+  // Consume events in the queue.  Without this, a net packet handler may
+  // get stuck waiting for the full buffer to have an empty slot.
+  drain_event_queue();
 }
 
 int Binlog_tcp_driver::set_position(const std::string &str, unsigned long position)
@@ -1152,6 +1155,18 @@ int Binlog_tcp_driver::set_ssl_cipher(const std::string& cipher_list)
 {
   m_opt_ssl_cipher= cipher_list;
   return ERR_OK;
+}
+
+void Binlog_tcp_driver::drain_event_queue()
+{
+  boost::mutex::scoped_lock lock(m_event_queue_pop_back_mutex);
+
+  Binary_log_event *event;
+  while(m_event_queue->has_unread())
+  {
+    m_event_queue->pop_back(&event);
+    delete event;
+  }
 }
 
 }} // end namespace mysql::system
