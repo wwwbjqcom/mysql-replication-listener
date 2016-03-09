@@ -815,27 +815,37 @@ int Binlog_tcp_driver::disconnect()
   if (m_socket == 0) {
     return ERR_OK;
   }
+
+  m_shutdown= true;
+
+  if (!m_event_queue->has_unread()) {
+    m_event_queue->push_front(0);  // push EOF event
+  }
+
   /*
     By posting to the io service we guarantee that the operations are
     executed in the same thread as the io_service is running in.
   */
-  // 1. Post shutdown, which stops the io_service
+  // Post shutdown, which stops the io_service
   m_io_service.post(boost::bind(&Binlog_tcp_driver::shutdown, this));
-  Binary_log_event * event;
+  // Consume events in the queue.  Without this, a net packet handler may
+  // get stuck waiting for the full buffer to have an empty slot.
+  drain_event_queue();
+
   m_waiting_event= 0;
-  // 2. Wait for the event loop thread to stop
+  // Wait for the event loop thread to stop
   if (m_event_loop)
   {
     m_event_loop->join();
     delete m_event_loop;
     m_event_loop= 0;
   }
-  // 3. Consume the stream buffer
+  // Consume the stream buffer
   m_event_stream_buffer.consume(m_event_stream_buffer.in_avail());
-  // 4. Consume the event queue to delete event(s) which may have
+  // Consume the event queue to delete event(s) which may have
   //    been pushed while waiting for the event loop to finish.
   drain_event_queue();
-  // 5. Clean up the socket
+  // Clean up the socket
   m_socket->close();
   delete m_socket;
   m_socket= 0;
@@ -845,16 +855,7 @@ int Binlog_tcp_driver::disconnect()
 
 void Binlog_tcp_driver::shutdown(void)
 {
-  m_shutdown= true;
   m_io_service.stop();
-
-  if (!m_event_queue->has_unread()) {
-    m_event_queue->push_front(0);  // push EOF event
-  }
-
-  // Consume events in the queue.  Without this, a net packet handler may
-  // get stuck waiting for the full buffer to have an empty slot.
-  drain_event_queue();
 }
 
 int Binlog_tcp_driver::set_position(const std::string &str, unsigned long position)
