@@ -49,6 +49,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
      boost::bind(&Binlog_tcp_driver::handle_net_packet_header, this, \
        boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)) \
 
+#define PACKET_READ_ERROR 175
+
 using boost::asio::ip::tcp;
 using namespace mysql::system;
 using namespace mysql;
@@ -425,8 +427,8 @@ void Binlog_tcp_driver::handle_net_packet(const boost::system::error_code& err, 
   // std::cerr << "handle_net_packet bytes_transferred:" << bytes_transferred << std::endl;
   if (err)
   {
-    // std::cerr << "handle_net_packet was called with error" << std::endl;
-    Binary_log_event * ev= create_incident_event(175, err.message().c_str(), m_binlog_offset);
+    // std::cerr << "handle_net_packet was called with error: " << err.message().c_str() << std::endl;
+    Binary_log_event * ev= create_incident_event(PACKET_READ_ERROR, err.message().c_str(), m_binlog_offset);
     m_event_queue->push_front(ev);
     return;
   }
@@ -440,7 +442,7 @@ void Binlog_tcp_driver::handle_net_packet(const boost::system::error_code& err, 
        << " number of bytes; got "
        << bytes_transferred
        << " instead.";
-    Binary_log_event * ev= create_incident_event(175, os.str().c_str(), m_binlog_offset);
+    Binary_log_event * ev= create_incident_event(PACKET_READ_ERROR, os.str().c_str(), m_binlog_offset);
     m_event_queue->push_front(ev);
     return;
   }
@@ -496,9 +498,11 @@ void Binlog_tcp_driver::handle_net_packet(const boost::system::error_code& err, 
 
 void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code& err, std::size_t bytes_transferred)
 {
+  // std::cerr << "handle_net_packet_header bytes_transferred:" << bytes_transferred << std::endl;
   if (err)
   {
-    Binary_log_event * ev= create_incident_event(175, err.message().c_str(), m_binlog_offset);
+    // std::cerr << "handle_net_packet was called with error: "  << err.message().c_str()  << std::endl;
+    Binary_log_event * ev= create_incident_event(PACKET_READ_ERROR, err.message().c_str(), m_binlog_offset);
     m_event_queue->push_front(ev);
     return;
   }
@@ -511,7 +515,7 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
        << " number of bytes; got "
        << bytes_transferred
        << " instead.";
-    Binary_log_event * ev= create_incident_event(175, os.str().c_str(), m_binlog_offset);
+    Binary_log_event * ev= create_incident_event(PACKET_READ_ERROR, os.str().c_str(), m_binlog_offset);
     m_event_queue->push_front(ev);
     return;
   }
@@ -752,48 +756,47 @@ void Binlog_tcp_driver::handle_net_packet_header(const boost::system::error_code
   m_event_queue->pop_back(event_ptr);
   if (event_ptr && *event_ptr == 0) {
     return ERR_EOF;
-  } else {
-    return 0;
   }
+  if (Incident_event *incident = dynamic_cast<Incident_event*>(*event_ptr)) {
+    if (incident->type == PACKET_READ_ERROR) {
+      delete incident;
+      throw std::runtime_error("Error reading data from MySQL server");
+    }
+  }
+  return 0;
 }
 
 void Binlog_tcp_driver::start_event_loop()
 {
-  while (true)
-  {
-    try {
-      boost::system::error_code err;
-      int executed_jobs=m_io_service.run(err);
-      if (err)
-      {
-        // TODO what error appear here?
-      }
-
-      /*
-        This function must be called prior to any second or later set of
-        invocations of the run(), run_one(), poll() or poll_one() functions when
-        a previous invocation of these functions returned due to the io_service
-        being stopped or running out of work. This function allows the io_service
-        to reset any internal state, such as a "stopped" flag.
-      */
-      m_io_service.reset();
-
-      /*
-        Don't shutdown until the io service has reset!
-      */
-      if (m_shutdown)
-      {
-        m_shutdown= false;
-        break;
-      }
-
-      boost::this_thread::sleep_for(boost::chrono::seconds(1));
-      reconnect();
-    } catch (const std::exception& e) {
-      std::cerr << "error in the event loop: " << e.what() << "\n";
+  try {
+    boost::system::error_code err;
+    int executed_jobs=m_io_service.run(err);
+    if (err)
+    {
+      // TODO what error appear here?
     }
-  }
 
+    /*
+      This function must be called prior to any second or later set of
+      invocations of the run(), run_one(), poll() or poll_one() functions when
+      a previous invocation of these functions returned due to the io_service
+      being stopped or running out of work. This function allows the io_service
+      to reset any internal state, such as a "stopped" flag.
+    */
+    m_io_service.reset();
+
+    /*
+      Don't shutdown until the io service has reset!
+    */
+    if (m_shutdown)
+    {
+      m_shutdown= false;
+    } else {
+      std::cerr << "the event loop finished unexpectedly\n";
+    }
+  } catch (const std::exception& e) {
+    std::cerr << "error in the event loop: " << e.what() << "\n";
+  }
 }
 
 int Binlog_tcp_driver::connect()
