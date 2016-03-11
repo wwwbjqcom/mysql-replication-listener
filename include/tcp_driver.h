@@ -191,7 +191,7 @@ private:
     boost::thread *m_event_loop;
     boost::asio::io_service m_io_service;
     Binlog_socket *m_socket;
-    bool m_shutdown;
+    volatile bool m_shutdown;
 
     /**
      * Temporary storage for a handshake package
