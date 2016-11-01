@@ -235,7 +235,7 @@ int main(int argc, char** argv)
 {
   if (argc < 2)
   {
-    fprintf(stderr,"Usage:\n\treplaybinlog URL\n\nExample:\n\treplaybinlog mysql://root:mypasswd@127.0.0.1:3306\n\n");
+    fprintf(stderr,"Usage:\n\treplaybinlog URL\n\nExample:\n\treplaybinlog mysql://root:mypasswd@127.0.0.1:3306?binlog_file=mysql-bin-changelog.000012&binlog_offset=4\n\n");
     return (EXIT_FAILURE);
   }
 
@@ -269,11 +269,11 @@ int main(int argc, char** argv)
     return (EXIT_FAILURE);
   }
 
-  if (binlog.set_position(4) != ERR_OK)
-  {
-    fprintf(stderr,"Can't reposition the binary log reader.\n");
-    return (EXIT_FAILURE);
-  }
+  //if (binlog.set_position(4) != ERR_OK)
+  //{
+  //  fprintf(stderr,"Can't reposition the binary log reader.\n");
+  //  return (EXIT_FAILURE);
+  //}
 
   Binary_log_event  *event;
 

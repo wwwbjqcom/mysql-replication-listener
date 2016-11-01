@@ -590,6 +590,7 @@ int calc_field_size(unsigned char column_type, const unsigned char *field_ptr, b
   case mysql::system::MYSQL_TYPE_LONG_BLOB:
   case mysql::system::MYSQL_TYPE_BLOB:
   case mysql::system::MYSQL_TYPE_GEOMETRY:
+  case mysql::system::MYSQL_TYPE_JSON:
   {
      switch (metadata)
     {
@@ -1201,6 +1202,7 @@ void Converter::to(std::string &str, const Value &val) const
     }
       break;
     case MYSQL_TYPE_GEOMETRY:
+    case MYSQL_TYPE_JSON:
       str= "not implemented";
       break;
     default:
@@ -1303,6 +1305,7 @@ void Converter::to(long &out, const Value &val) const
       out= 0;
       break;
     case MYSQL_TYPE_GEOMETRY:
+    case MYSQL_TYPE_JSON:
       out= 0;
       break;
     default:
