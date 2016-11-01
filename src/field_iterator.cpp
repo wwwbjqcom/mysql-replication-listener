@@ -71,6 +71,7 @@ int lookup_metadata_field_size(enum mysql::system::enum_field_types field_type)
     case mysql::system::MYSQL_TYPE_FLOAT:
     case mysql::system::MYSQL_TYPE_BLOB:
     case mysql::system::MYSQL_TYPE_GEOMETRY:
+    case mysql::system::MYSQL_TYPE_JSON:
     case mysql::system::MYSQL_TYPE_TIME2:
     case mysql::system::MYSQL_TYPE_TIMESTAMP2:
     case mysql::system::MYSQL_TYPE_DATETIME2:
