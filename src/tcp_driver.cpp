@@ -55,8 +55,6 @@ using boost::asio::ip::tcp;
 using namespace mysql::system;
 using namespace mysql;
 
-typedef unsigned char uchar;
-
 namespace mysql { namespace system {
 
 static int encrypt_password(boost::uint8_t *reply,   /* buffer at least EVP_MAX_MD_SIZE */

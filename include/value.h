@@ -62,7 +62,7 @@ public:
                               metadata);
       //std::cout << "TYPE: " << type << " SIZE: " << m_size << std::endl;
     };
-    
+
     Value(enum system::enum_field_types type, boost::uint32_t metadata, const char *storage, bool is_null) :
       m_type(type), m_storage(storage), m_metadata(metadata), m_is_null(is_null)
     {
@@ -156,6 +156,13 @@ public:
      * @param[out] size The size in bytes of the blob data.
      */
     unsigned char *as_blob(unsigned long &size) const;
+
+    /**
+     * Append the JSON string to the given buffer.
+     *
+     * @param[out] buf The string object that JSON string is appended
+     */
+    bool to_json_string(std::string &buf) const;
 
     float as_float() const;
     double as_double() const;
