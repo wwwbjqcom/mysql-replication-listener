@@ -831,8 +831,33 @@ bool Value::to_string(std::string &buf)
   }
   case DOUBLE:
   {
+    /*
+       TODO: Import dtoa.cc and calls the "my_gcvt()" function for converting a double value to string
+
+       Currently this implemention doesn't handle a double value accurately, if the precision of
+       the double value is the maximum precision(= 17 mostly). Since MySQL has its own implementation
+       to print a double value, eventually double values need to be converted through the "my_gcvt()"
+       function after importing the code in dtoa.cc.
+
+       Examples:
+         {"a": 1.8446744073709552e19} => {"a": 1.844674407370955e+19}
+         {"a": 1.0000000000000004}    => {"a": 1}
+
+       dtoa.cc
+         https://dev.mysql.com/doc/dev/mysql-server/latest/dtoa_8cc.html
+    */
     std::ostringstream oss;
     double d = get_double();
+
+    /*
+       Since "digits10 + 2" causes another issue for floating-point inaccuracy,
+       we decided not to show the last digit of the floating point.
+
+       Examples of issues if 'digits10 + 2' is set:
+         {"a": 1.33}                  => {"a": 1.3300000000000001}
+         {"a": 1.23456789}            => {"a": 1.2345678899999999}
+    */
+    oss.precision(std::numeric_limits<double>::digits10 + 1);
     oss << d;
     buf.append(oss.str());
     break;
