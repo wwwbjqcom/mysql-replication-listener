@@ -23,6 +23,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 #include <iomanip>
 #include <boost/format.hpp>
 #include <sys/time.h>
+#include <string>
+
+#include "json_binary.h"
 
 #define DIG_PER_DEC1 9
 
@@ -710,6 +713,20 @@ unsigned char *Value::as_blob(unsigned long &size) const
   return (unsigned char *)(m_storage + m_metadata);
 }
 
+bool Value::to_json_string(std::string &buf) const
+{
+  size_t size;
+
+  if (m_is_null || m_size == 0)
+  {
+    return true;
+  }
+
+  size= m_size - m_metadata;
+  json_binary::Value doc= json_binary::parse_binary((m_storage + m_metadata), size);
+  return doc.to_string(buf);
+}
+
 boost::int32_t Value::as_int32() const
 {
   if (m_is_null)
@@ -978,7 +995,7 @@ void convert_newdecimal(std::string &str, const Value &val)
     str.append(str_fractional);
   }
 
-  delete val_storage;
+  delete[] val_storage;
 }
 
 void Converter::to(std::string &str, const Value &val) const
@@ -1202,8 +1219,10 @@ void Converter::to(std::string &str, const Value &val) const
     }
       break;
     case MYSQL_TYPE_GEOMETRY:
-    case MYSQL_TYPE_JSON:
       str= "not implemented";
+      break;
+    case MYSQL_TYPE_JSON:
+      val.to_json_string(str);
       break;
     default:
       str= "not implemented";

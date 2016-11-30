@@ -26,6 +26,12 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
 #include "binlog_socket.h"
 
 using boost::asio::ip::tcp;
+
+typedef unsigned char uchar;
+typedef unsigned int uint;
+typedef unsigned long long ulonglong;
+typedef long long longlong;
+
 namespace mysql {
 namespace system {
 
@@ -75,6 +81,24 @@ struct st_error_package
   boost::uint8_t  sql_state[5];
   std::string  message;
 };
+
+/**
+  (From include/my_global.h v5.7.16)
+*/
+#define INT_MIN64       (~0x7FFFFFFFFFFFFFFFLL)
+#define INT_MAX64       0x7FFFFFFFFFFFFFFFLL
+#define INT_MIN32       (~0x7FFFFFFFL)
+#define INT_MAX32       0x7FFFFFFFL
+#define UINT_MAX32      0xFFFFFFFFL
+#define INT_MIN24       (~0x007FFFFF)
+#define INT_MAX24       0x007FFFFF
+#define UINT_MAX24      0x00FFFFFF
+#define INT_MIN16       (~0x7FFF)
+#define INT_MAX16       0x7FFF
+#define UINT_MAX16      0xFFFF
+#define INT_MIN8        (~0x7F)
+#define INT_MAX8        0x7F
+#define UINT_MAX8       0xFF
 
 #define CLIENT_LONG_PASSWORD	1	/* new more secure passwords */
 #define CLIENT_FOUND_ROWS	2	/* Found instead of affected rows */
